@@ -1,0 +1,11 @@
+{
+ "extension-id": "miniview",
+ "uuid": "miniview@thesecretaryofwar.com",
+ "settings-schema": "org.gnome.shell.extensions.miniview",
+ "gettext-domain": "gnome-shell-extensions",
+ "name": "Miniview",
+ "description": "Show window previews",
+ "shell-version": [ "3.4.2" ],
+ "original-authors": [ "thesecretaryofwar@gmail.com" ],
+ "url": "http://dohan.dyndns.org/"
+}
