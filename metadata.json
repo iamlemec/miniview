@@ -5,7 +5,7 @@
  "gettext-domain": "gnome-shell-extensions",
  "name": "Miniview",
  "description": "Show window previews",
- "shell-version": [ "3.4.2" ],
+ "shell-version": [ "3.8.4" ],
  "original-authors": [ "thesecretaryofwar@gmail.com" ],
  "url": "http://dohan.dyndns.org/"
 }

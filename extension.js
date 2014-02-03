@@ -172,9 +172,9 @@ Miniview.prototype = {
         this._windowList = [];
         for (let i = 0; i < baseWindowList.length; i++) {
             let metaWin = baseWindowList[i].get_meta_window();
-            //if (!this._isOverviewWindow(metaWin)) {
+            if (this._isOverviewWindow(metaWin)) {
                 this._windowList.push(metaWin);
-            //}
+            }
         }
 
         global.log('temp 2');
