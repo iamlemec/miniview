@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema path="/org/gnome/shell/extensions/miniview/" id="org.gnome.shell.extensions.miniview" gettext-domain="gnome-shell">
+    <key name="toggle-miniview" type="as">
+      <default><![CDATA[['<Shift>F12']]]></default>
+      <summary>Toggle Miniview</summary>
+      <description>Toggle the Miniview Gnome shell extension.</description>
+    </key>
+    <key type="b" name="showme">
+      <default>true</default>
+      <summary>Toggle On/Off</summary>
+      <description>Turn Miniview on or off.</description>
+    </key>
+  </schema>
+</schemalist>
