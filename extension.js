@@ -90,8 +90,6 @@ const Indicator = new Lang.Class({
 
 WindowClone.prototype = {
     _init : function(miniview) {
-        //global.log('WindowClone._init');
-
         this._miniview = miniview;
         this._windowClone = new Clutter.Clone();
 
@@ -161,7 +159,6 @@ WindowClone.prototype = {
             this.leftButtonDown = false;
 
             if (event.get_click_count() == 2) {
-                //global.log('double clicked');
                 Main.activateWindow(this._metaWin);
             }
         } else if (button == 3) {
@@ -231,8 +228,6 @@ function Miniview() {
 
 Miniview.prototype = {
     _init: function() {
-        global.log('Miniview._init');
-
         let baseWindowList = global.get_window_actors();
         this._windowList = [];
         for (let i = 0; i < baseWindowList.length; i++) {
