@@ -7,6 +7,15 @@ const Signals = imports.signals;
 const Mainloop = imports.mainloop;
 const Shell = imports.gi.Shell;
 const Main = imports.ui.main;
+const PanelMenu = imports.ui.panelMenu;
+const PopupMenu = imports.ui.popupMenu;
+
+const ExtensionUtils = imports.misc.extensionUtils;
+const Me = ExtensionUtils.getCurrentExtension();
+const Convenience = Me.imports.convenience;
+
+const Gettext = imports.gettext.domain('miniview');
+const _ = Gettext.gettext;
 
 const MINIVIEW_SETTINGS_SCHEMA = 'org.gnome.shell.extensions.miniview';
 
@@ -14,9 +23,74 @@ function WindowClone(miniview) {
     this._init(miniview);
 }
 
+const Indicator = new Lang.Class({
+    Name: 'MiniviewMenu',
+    Extends: PanelMenu.Button,
+
+    _init: function(miniview) {
+        this._miniview = miniview;
+
+        // get settings from schema
+        this._settings = Convenience.getSettings();
+        this._showme = this._settings.get_boolean('showme');
+        this._settings.connect('changed', Lang.bind(this, this._settingsChanged));
+        Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, Lang.bind(this, this._onToggled));
+
+        this.parent(St.Align.START);
+        this.label = new St.Label({text:'Mini'});
+        this.label.set_style('padding-top: 4px;');
+        this.actor.add_actor(this.label);
+
+        // on/off toggle
+        this._tsToggle = new PopupMenu.PopupSwitchMenuItem('Enable Miniview', false, { style_class: 'popup-subtitle-menu-item' });
+        this._tsToggle.connect('toggled', Lang.bind(this, this._onToggled));
+        this.menu.addMenuItem(this._tsToggle);
+
+        // cycling through windows
+        this._tsNext = new PopupMenu.PopupMenuItem('Next Window');
+        this._tsNext.connect('activate', Lang.bind(this, this._onNext));
+        this.menu.addMenuItem(this._tsNext);
+
+        this._tsPrev = new PopupMenu.PopupMenuItem('Previous Window');
+        this._tsPrev.connect('activate', Lang.bind(this, this._onPrev));
+        this.menu.addMenuItem(this._tsPrev);
+
+        // init ui
+        this._reflectState();
+    },
+
+    _reflectState: function() {
+        this._tsToggle.setToggleState(this._showme);
+        if (this._showme) {
+            this._miniview._showMiniview();
+        } else {
+            this._miniview._hideMiniview();
+        }
+    },
+
+    _settingsChanged: function() {
+        this._showme = this._settings.get_boolean('showme');
+        this._reflectState();
+    },
+
+    _onToggled: function() {
+        this._showme = !this._showme;
+        this._settings.set_boolean('showme', this._showme);
+        this._reflectState();
+    },
+
+    _onNext: function() {
+        this._miniview._goWindowDown();
+    },
+
+    _onPrev: function() {
+        this._miniview._goWindowUp();
+    },
+});
+
 WindowClone.prototype = {
     _init : function(miniview) {
-        global.log('WindowClone._init');
+        //global.log('WindowClone._init');
 
         this._miniview = miniview;
         this._windowClone = new Clutter.Clone();
@@ -57,13 +131,10 @@ WindowClone.prototype = {
     },
 
     destroy: function () {
-        global.log('WindowClone.destroy()');
         this.actor.destroy();
     },
 
     _onButtonPress: function(actor, event) {
-        global.log('miniview._onButtonPress(' + event.get_button() + ')');
-
         [click_x, click_y] = event.get_coords();
         this.offset_x = click_x - this.actor.x;
         this.offset_y = click_y - this.actor.y;
@@ -85,14 +156,12 @@ WindowClone.prototype = {
     },
 
     _onButtonRelease: function(actor, event) {
-        global.log('miniview._onButtonRelease(' + event.get_button() + ')');
-
         let button = event.get_button();
         if (button == 1) {
             this.leftButtonDown = false;
 
             if (event.get_click_count() == 2) {
-                global.log('double clicked');
+                //global.log('double clicked');
                 Main.activateWindow(this._metaWin);
             }
         } else if (button == 3) {
@@ -164,29 +233,21 @@ Miniview.prototype = {
     _init: function() {
         global.log('Miniview._init');
 
-        var display = global.screen.get_display();
-
-        //display.add_keybinding('toggle-miniview', new Gio.Settings({ schema: MINIVIEW_SETTINGS_SCHEMA }), Meta.KeyBindingFlags.NONE, Lang.bind(this, this._onStageKeyPress));
-
         let baseWindowList = global.get_window_actors();
         this._windowList = [];
         for (let i = 0; i < baseWindowList.length; i++) {
             let metaWin = baseWindowList[i].get_meta_window();
-            //if (!this._isOverviewWindow(metaWin)) {
+            if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
                 this._windowList.push(metaWin);
-            //}
+            }
         }
-
-        global.log('temp 2');
-
-        global.log('_windowList.length = ' + this._windowList.length);
 
         this._clone = new WindowClone(this);
         this._clone.connect('scroll-up', Lang.bind(this, this._goWindowUp));
         this._clone.connect('scroll-down', Lang.bind(this, this._goWindowDown));
 
-        Main.overview.connect('showing',Lang.bind(this, this._overviewEnter));
-        Main.overview.connect('hidden', Lang.bind(this, this._overviewLeave));
+        this._overviewShowingId = Main.overview.connect('showing',Lang.bind(this, this._overviewEnter));
+        this._overviewHiddenId = Main.overview.connect('hidden', Lang.bind(this, this._overviewLeave));
         Main.layoutManager.addChrome(this._clone.actor);
 
         this._winIdx = 0;
@@ -198,12 +259,16 @@ Miniview.prototype = {
           this._clone.actor.visible = true;
         }
 
-        global.screen.connect('window-entered-monitor', Lang.bind(this, this._windowEnteredMonitor));
-        global.screen.connect('window-left-monitor', Lang.bind(this, this._windowLeftMonitor));
+        this._windowEnteredMonitorId = global.screen.connect('window-entered-monitor', Lang.bind(this, this._windowEnteredMonitor));
+        this._windowLeftMonitorId = global.screen.connect('window-left-monitor', Lang.bind(this, this._windowLeftMonitor));
     },
 
     destroy: function() {
-        global.log('Miniview.destroy');
+        Main.overview.disconnect(this._overviewShowingId);
+        Main.overview.disconnect(this._overviewHiddenId);
+
+        global.screen.disconnect(this._windowEnteredMonitorId);
+        global.screen.disconnect(this._windowLeftMonitorId);
 
         if (this._clone) {
             this._clone.destroy();
@@ -211,35 +276,26 @@ Miniview.prototype = {
     },
 
     _goWindowUp: function() {
-        global.log('Miniview._goWindowUp');
-
         this._winIdx += 1;
         if (this._winIdx >= this._windowList.length) {
             this._winIdx = 0;
         }
-
-        global.log('winIdx = ' + this._winIdx);
 
         let win = this._windowList[this._winIdx].get_compositor_private();
         this._clone.setSource(win);
     },
 
     _goWindowDown: function() {
-        global.log('Miniview._goWindowDown');
-
         this._winIdx -= 1;
         if (this._winIdx < 0) {
             this._winIdx = this._windowList.length - 1;
         }
-
-        global.log('winIdx = ' + this._winIdx);
 
         let win = this._windowList[this._winIdx].get_compositor_private();
         this._clone.setSource(win);
     },
 
     _windowEnteredMonitor : function(metaScreen, monitorIndex, metaWin) {
-        global.log('Miniview._windowEnteredMonitor');
         this._insertWindow(metaWin);
     },
 
@@ -261,19 +317,13 @@ Miniview.prototype = {
             return;
         }
 
-        global.log('Miniview._insertWindow(' + win + ')');
-
-        //if (!this.isOverviewWindow(metaWin)) {
-        //    return;
-        //}
-
-        global.log('isOverviewWindow = true');
+        if (metaWin.get_window_type() != Meta.WindowType.NORMAL) {
+            return;
+        }
 
         if (this._lookupIndex(metaWin) != -1) {
             return;
         }
-
-        global.log('insert at ' + this._windowList.length);
 
         this._windowList.push(metaWin);
 
@@ -288,14 +338,10 @@ Miniview.prototype = {
     _windowLeftMonitor : function(metaScreen, monitorIndex, metaWin) {
         let win = metaWin.get_compositor_private();
 
-        global.log('Miniview._windowLeftMonitor(' + win + ')');
-
         let index = this._lookupIndex(metaWin);
         if (index == -1) {
             return;
         }
-
-        global.log('remove at = ' + index);
 
         this._windowList.splice(index, 1);
 
@@ -331,9 +377,22 @@ Miniview.prototype = {
         return -1;
     },
 
-    _toggleMiniview: function() {
-        this._shouldShow = !this._shouldShow;
+    _showMiniview: function() {
+        this._shouldShow = true;
         this._realizeMiniview();
+    },
+
+    _hideMiniview: function() {
+        this._shouldShow = false;
+        this._realizeMiniview();
+    },
+
+    _toggleMiniview: function() {
+        if (this._shouldShow) {
+            this._hideMiniview();
+        } else {
+            this._showMiniview();
+        }
     },
 
     _overviewEnter: function() {
@@ -359,25 +418,22 @@ Miniview.prototype = {
             this._clone.actor.visible = false;
         }
     },
-
-    _onStageKeyPress: function(display, screen, window, event, binding) {
-        global.log('Miniview._onStageKeyPress');
-
-        this._toggleMiniview();
-    }
 }
 
 function init(meta) {
-    // empty
+    Convenience.initTranslations('miniview');
 }
 
+let _indicator;
 let _miniview;
 
 function enable() {
     _miniview = new Miniview();
+    _indicator = new Indicator(_miniview);
+    Main.panel.addToStatusArea('miniview',_indicator);
 }
 
 function disable() {
+    _indicator.destroy();
     _miniview.destroy();
 }
-
