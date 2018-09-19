@@ -119,8 +119,9 @@ WindowClone.prototype = {
         this.actor.connect('enter-event', Lang.bind(this, this._onMouseEnter));
         this.actor.connect('leave-event', Lang.bind(this, this._onMouseLeave));
 
-        this.leftButtonDown = false;
-        this.rightButtonDown = false;
+        this.inMove = false;
+        this.inResize = false;
+        this.inResizeCtrl = false;
 
         // initial size
         this.actor.scale_x = 0.2;
@@ -133,15 +134,27 @@ WindowClone.prototype = {
     },
 
     _onButtonPress: function(actor, event) {
-        [click_x, click_y] = event.get_coords();
+        // only allow one type of action at a time
+        if (this.inMove || this.inResize || this.inResizeCtrl) {
+            return true;
+        }
+
+        let [click_x, click_y] = event.get_coords();
         this.offset_x = click_x - this.actor.x;
         this.offset_y = click_y - this.actor.y;
 
         let button = event.get_button();
-        if (button == 1) {
-            this.leftButtonDown = true;
-        } else if (button == 3) {
-            this.rightButtonDown = true;
+        let state = event.get_state();
+        let ctrl = (state & Clutter.ModifierType.CONTROL_MASK) != 0;
+
+        if ((button == 1) && (!ctrl)) {
+            this.inMove = true;
+        } else if ((button == 3) || ((button == 1) && ctrl)) {
+            if (button == 3) {
+                this.inResize = true;
+            } else {
+                this.inResizeCtrl = true;
+            }
 
             this.offset_norm = Math.sqrt(Math.pow(this.offset_x,2)
                                         +Math.pow(this.offset_y,2));
@@ -155,29 +168,38 @@ WindowClone.prototype = {
 
     _onButtonRelease: function(actor, event) {
         let button = event.get_button();
+
         if (button == 1) {
-            this.leftButtonDown = false;
+            if (this.inMove) {
+                this.inMove = false;
+            }
+
+            if (this.inResizeCtrl) {
+                this.inResizeCtrl = false;
+            }
 
             if (event.get_click_count() == 2) {
                 Main.activateWindow(this._metaWin);
             }
         } else if (button == 3) {
-            this.rightButtonDown = false;
+            if (this.inResize) {
+                this.inResize = false;
+            }
         }
 
         return true;
     },
 
     _onMouseMove: function(actor, event) {
-        if (this.leftButtonDown || this.rightButtonDown) {
+        if (this.inMove || this.inResize || this.inResizeCtrl) {
             let [pos_x,pos_y] = event.get_coords();
 
-            if (this.leftButtonDown) {
+            if (this.inMove) {
                 this.actor.x = pos_x - this.offset_x;
                 this.actor.y = pos_y - this.offset_y;
             }
 
-            if (this.rightButtonDown) {
+            if (this.inResize || this.inResizeCtrl) {
                 let new_offset_x = pos_x - this.actor.x;
                 let new_offset_y = pos_y - this.actor.y;
                 let new_offset_norm =  Math.sqrt(Math.pow(new_offset_x,2)
@@ -192,7 +214,13 @@ WindowClone.prototype = {
     },
 
     _onScroll: function(actor, event) {
+        // only allow one type of action at a time
+        if (this.inMove || this.inResize || this.inResizeCtrl) {
+            return true;
+        }
+
         let direction = event.get_scroll_direction();
+
         if (direction == Clutter.ScrollDirection.UP) {
             this.emit('scroll-up');
         } else if (direction == Clutter.ScrollDirection.DOWN) {
@@ -205,7 +233,7 @@ WindowClone.prototype = {
     },
 
     _onMouseLeave: function(actor, event) {
-        if (this.leftButtonDown) {
+        if (this.inMove) {
             let [pos_x,pos_y] = event.get_coords();
             this.actor.x = pos_x - this.offset_x;
             this.actor.y = pos_y - this.offset_y;
