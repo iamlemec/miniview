@@ -13,11 +13,21 @@ const PopupMenu = imports.ui.popupMenu;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 const Convenience = Me.imports.convenience;
+const Config = imports.misc.config;
 
 const Gettext = imports.gettext.domain('miniview');
 const _ = Gettext.gettext;
 
 const MINIVIEW_SETTINGS_SCHEMA = 'org.gnome.shell.extensions.miniview';
+
+// get gnome shell version
+let _display;
+[gsv_major, gsv_minor] = Config.PACKAGE_VERSION.split('.', 2)
+if ((gsv_major >= 3) && (gsv_minor >= 30)) {
+    _display = global.display;
+} else {
+    _display = global.screen;
+}
 
 function WindowClone(miniview) {
     this._init(miniview);
@@ -254,16 +264,16 @@ Miniview.prototype = {
           this._clone.actor.visible = true;
         }
 
-        this._windowEnteredMonitorId = global.screen.connect('window-entered-monitor', Lang.bind(this, this._windowEnteredMonitor));
-        this._windowLeftMonitorId = global.screen.connect('window-left-monitor', Lang.bind(this, this._windowLeftMonitor));
+        this._windowEnteredMonitorId = _display.connect('window-entered-monitor', Lang.bind(this, this._windowEnteredMonitor));
+        this._windowLeftMonitorId = _display.connect('window-left-monitor', Lang.bind(this, this._windowLeftMonitor));
     },
 
     destroy: function() {
         Main.overview.disconnect(this._overviewShowingId);
         Main.overview.disconnect(this._overviewHiddenId);
 
-        global.screen.disconnect(this._windowEnteredMonitorId);
-        global.screen.disconnect(this._windowLeftMonitorId);
+        _display.disconnect(this._windowEnteredMonitorId);
+        _display.disconnect(this._windowLeftMonitorId);
 
         if (this._clone) {
             this._clone.destroy();
