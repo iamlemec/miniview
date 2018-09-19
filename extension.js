@@ -37,21 +37,21 @@ const Indicator = new Lang.Class({
         Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, Lang.bind(this, this._onToggled));
 
         this.parent(St.Align.START);
-        this.label = new St.Label({text:'Mini'});
+        this.label = new St.Label({text:_("Mini")});
         this.label.set_style('padding-top: 4px;');
         this.actor.add_actor(this.label);
 
         // on/off toggle
-        this._tsToggle = new PopupMenu.PopupSwitchMenuItem('Enable Miniview', false, { style_class: 'popup-subtitle-menu-item' });
+        this._tsToggle = new PopupMenu.PopupSwitchMenuItem(_("Enable Miniview"), false, { style_class: 'popup-subtitle-menu-item' });
         this._tsToggle.connect('toggled', Lang.bind(this, this._onToggled));
         this.menu.addMenuItem(this._tsToggle);
 
         // cycling through windows
-        this._tsNext = new PopupMenu.PopupMenuItem('Next Window');
+        this._tsNext = new PopupMenu.PopupMenuItem(_("Next Window"));
         this._tsNext.connect('activate', Lang.bind(this, this._onNext));
         this.menu.addMenuItem(this._tsNext);
 
-        this._tsPrev = new PopupMenu.PopupMenuItem('Previous Window');
+        this._tsPrev = new PopupMenu.PopupMenuItem(_("Previous Window"));
         this._tsPrev.connect('activate', Lang.bind(this, this._onPrev));
         this.menu.addMenuItem(this._tsPrev);
 
