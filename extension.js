@@ -46,9 +46,9 @@ const Indicator = new Lang.Class({
         this._settings.connect('changed', Lang.bind(this, this._settingsChanged));
         Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, Lang.bind(this, this._onToggled));
 
+        // create menu ui
         this.parent(St.Align.START);
-        this.label = new St.Label({text:_("Mini")});
-        this.label.set_style('padding-top: 4px;');
+        this.label = new St.Label({ text:_("Mini"), y_align: Clutter.ActorAlign.CENTER });
         this.actor.add_actor(this.label);
 
         // on/off toggle
@@ -329,6 +329,8 @@ Miniview.prototype = {
     },
 
     _windowEnteredMonitor : function(metaScreen, monitorIndex, metaWin) {
+        // global.log(`_windowLeftMonitor: current=${this._winIdx}, total=${this._windowList.length}`);
+
         this._insertWindow(metaWin);
     },
 
@@ -370,8 +372,10 @@ Miniview.prototype = {
 
     _windowLeftMonitor : function(metaScreen, monitorIndex, metaWin) {
         let win = metaWin.get_compositor_private();
-
         let index = this._lookupIndex(metaWin);
+
+        // global.log(`_windowLeftMonitor: index=${index}, current=${this._winIdx}, total=${this._windowList.length}`);
+
         if (index == -1) {
             return;
         }
