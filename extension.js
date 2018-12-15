@@ -22,7 +22,7 @@ const MINIVIEW_SETTINGS_SCHEMA = 'org.gnome.shell.extensions.miniview';
 
 // get gnome shell version
 let _display;
-[gsv_major, gsv_minor] = Config.PACKAGE_VERSION.split('.', 2)
+let [gsv_major, gsv_minor] = Config.PACKAGE_VERSION.split('.', 2)
 if ((gsv_major >= 3) && (gsv_minor >= 30)) {
     _display = global.display;
 } else {
@@ -308,6 +308,16 @@ Miniview.prototype = {
         }
     },
 
+    /*
+    setIndex: function(idx) {
+        if ((idx >= 0) && (idx < this._windowList.length)) {
+            this._winIdx = idx;
+            let win = this._windowList[this._winIdx].get_compositor_private();
+            this._clone.setSource(win);
+        }
+    },
+    */
+
     _goWindowUp: function() {
         this._winIdx += 1;
         if (this._winIdx >= this._windowList.length) {
@@ -329,9 +339,12 @@ Miniview.prototype = {
     },
 
     _windowEnteredMonitor : function(metaScreen, monitorIndex, metaWin) {
-        // global.log(`_windowLeftMonitor: current=${this._winIdx}, total=${this._windowList.length}`);
-
-        this._insertWindow(metaWin);
+        if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
+            var title = metaWin.get_title();
+            var index = this._windowList.length;
+            global.log(`miniview: _windowEnteredMonitor: index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
+            this._insertWindow(metaWin);
+        }
     },
 
     _insertWindow : function(metaWin) {
@@ -352,10 +365,6 @@ Miniview.prototype = {
             return;
         }
 
-        if (metaWin.get_window_type() != Meta.WindowType.NORMAL) {
-            return;
-        }
-
         if (this._lookupIndex(metaWin) != -1) {
             return;
         }
@@ -371,10 +380,17 @@ Miniview.prototype = {
     },
 
     _windowLeftMonitor : function(metaScreen, monitorIndex, metaWin) {
+        if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
+            var title = metaWin.get_title();
+            var index = this._lookupIndex(metaWin);
+            global.log(`miniview: _windowLeftMonitor   : index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
+            this._removeWindow(metaWin);
+        }
+    },
+
+    _removeWindow: function(metaWin) {
         let win = metaWin.get_compositor_private();
         let index = this._lookupIndex(metaWin);
-
-        // global.log(`_windowLeftMonitor: index=${index}, current=${this._winIdx}, total=${this._windowList.length}`);
 
         if (index == -1) {
             return;
@@ -400,7 +416,7 @@ Miniview.prototype = {
     },
 
     // Tests if @win should be shown in the Overview
-    _isOverviewWindow : function (metaWin) {
+    _isOverviewWindow: function (metaWin) {
         let tracker = Shell.WindowTracker.get_default();
         return tracker.is_window_interesting(metaWin);
     },
@@ -464,13 +480,67 @@ function init(meta) {
 let _indicator;
 let _miniview;
 
+// session state
+let state = {
+    // idx: -1,
+    pos_x: null,
+    pos_y: null,
+    size_x: null,
+    size_y: null
+}
+
 function enable() {
+    global.log(`miniview: enable`)
+
     _miniview = new Miniview();
     _indicator = new Indicator(_miniview);
     Main.panel.addToStatusArea('miniview',_indicator);
+
+    // global.log(`miniview: idx = ${state.idx}`);
+    global.log(`miniview: pos_x = ${state.pos_x}`);
+    global.log(`miniview: pos_y = ${state.pos_y}`);
+    global.log(`miniview: size_x = ${state.size_x}`);
+    global.log(`miniview: size_y = ${state.size_y}`);
+
+    // some window shenanigans happening before destroy
+    /*
+    if (state.idx >= 0) {
+        var nwin = _miniview._windowList.length;
+        var idx1 = nwin - state.idx - 1;
+        _miniview.setIndex(idx1);
+    }
+    */
+
+    if (state.pos_x != null) {
+        _miniview._clone.actor.x = state.pos_x;
+    }
+    if (state.pos_y != null) {
+        _miniview._clone.actor.y = state.pos_y;
+    }
+    if (state.size_x != null) {
+        _miniview._clone.actor.scale_x = state.size_x;
+    }
+    if (state.size_y != null) {
+        _miniview._clone.actor.scale_y = state.size_y;
+    }
 }
 
 function disable() {
+    global.log('miniview: disable')
+
+    // state.idx = _miniview._winIdx;
+    state.pos_x = _miniview._clone.actor.x;
+    state.pos_y = _miniview._clone.actor.y;
+    state.size_x = _miniview._clone.actor.scale_x;
+    state.size_y = _miniview._clone.actor.scale_y;
+
+    // global.log(`miniview: idx = ${state.idx}`);
+    global.log(`miniview: pos_x = ${state.pos_x}`);
+    global.log(`miniview: pos_y = ${state.pos_y}`);
+    global.log(`miniview: size_x = ${state.size_x}`);
+    global.log(`miniview: size_y = ${state.size_y}`);
+
+    Main.wm.removeKeybinding('toggle-miniview');
     _indicator.destroy();
     _miniview.destroy();
 }
