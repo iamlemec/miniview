@@ -64,6 +64,11 @@ const Indicator = new Lang.Class({
         this._tsPrev = new PopupMenu.PopupMenuItem(_("Previous Window"));
         this._tsPrev.connect('activate', Lang.bind(this, this._onPrev));
         this.menu.addMenuItem(this._tsPrev);
+        
+        // reset Opacity (in case miniview got lost :) )
+        this._tsResetOpacity = new PopupMenu.PopupMenuItem(_("Reset Opacity"));
+        this._tsResetOpacity.connect('activate', Lang.bind(this, this._onResetOpacity));
+        this.menu.addMenuItem(this._tsResetOpacity);
 
         // init ui
         this._reflectState();
@@ -95,6 +100,11 @@ const Indicator = new Lang.Class({
 
     _onPrev: function() {
         this._miniview._goWindowUp();
+    },
+
+    _onResetOpacity: function() {
+        this._miniview._clone.user_opacity = 255;
+        this._miniview._clone.actor.opacity = 255;
     },
 });
 
@@ -137,6 +147,9 @@ WindowClone.prototype = {
         this.actor.scale_x = 0.2;
         this.actor.scale_y = 0.2;
         this.actor.visible = false;
+
+        // opacity values
+        this.user_opacity = 255;
     },
 
     destroy: function () {
@@ -230,16 +243,37 @@ WindowClone.prototype = {
         }
 
         let direction = event.get_scroll_direction();
+        let state = event.get_state();
+        let ctrl = (state & Clutter.ModifierType.CONTROL_MASK) != 0;
 
-        if (direction == Clutter.ScrollDirection.UP) {
-            this.emit('scroll-up');
-        } else if (direction == Clutter.ScrollDirection.DOWN) {
-            this.emit('scroll-down');
+        if (ctrl) {
+            if (direction == Clutter.ScrollDirection.UP) {
+                this.user_opacity += 10;
+            } else if (direction == Clutter.ScrollDirection.DOWN) {
+                this.user_opacity -= 10;
+            }
+
+            if (this.user_opacity > 255) {
+                this.user_opacity = 255;
+            } else if (this.user_opacity < 0) {
+                this.user_opacity = 0;
+            }
+
+            this.actor.opacity = this.user_opacity;
+
+        } else {
+
+            if (direction == Clutter.ScrollDirection.UP) {
+                this.emit('scroll-up');
+            } else if (direction == Clutter.ScrollDirection.DOWN) {
+                this.emit('scroll-down');
+            }
         }
     },
 
     _onMouseEnter: function(actor, event) {
-        this.actor.opacity = 200;
+        // decrease opacity a little bit
+        this.actor.opacity = Math.trunc(this.user_opacity * 0.8);
     },
 
     _onMouseLeave: function(actor, event) {
@@ -249,7 +283,8 @@ WindowClone.prototype = {
             this.actor.y = pos_y - this.offset_y;
         }
         else {
-            this.actor.opacity = 255;
+            // set opacity back to user value
+            this.actor.opacity = this.user_opacity;
         }
     },
 
