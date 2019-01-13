@@ -10,3 +10,8 @@ GNOME Shell plugin that shows a preview of another window (like picture-in-pictu
 - Scroll wheel: change target window
 - Double click: raise target window
 - Shift + F12: toggle preview window
+- Ctrl + scroll wheel: adjust opacity
+
+### Contributors
+
+Thanks @antielektron and @jonnius!
