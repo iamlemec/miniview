@@ -260,12 +260,15 @@ WindowClone.prototype = {
 };
 Signals.addSignalMethods(WindowClone.prototype);
 
-function Miniview() {
-  this._init();
+function Miniview(state) {
+  this._init(state);
 }
 
 Miniview.prototype = {
-    _init: function() {
+    _init: function(state) {
+        this._state = state;
+        this._timeout = null;
+
         let baseWindowList = global.get_window_actors();
         this._windowList = [];
         for (let i = 0; i < baseWindowList.length; i++) {
@@ -283,13 +286,13 @@ Miniview.prototype = {
         this._overviewHiddenId = Main.overview.connect('hidden', Lang.bind(this, this._overviewLeave));
         Main.layoutManager.addChrome(this._clone.actor);
 
-        this._winIdx = 0;
+        this._winIdx = null;
+        this._metaWin = null;
         this._shouldShow = true;
 
-        if (this._windowList.length) {
-          let win = this._windowList[this._winIdx].get_compositor_private();
-          this._clone.setSource(win);
-          this._clone.actor.visible = true;
+        if (this._windowList.length > 0) {
+            this.setIndex(0);
+            this._clone.actor.visible = true;
         }
 
         this._windowEnteredMonitorId = _display.connect('window-entered-monitor', Lang.bind(this, this._windowEnteredMonitor));
@@ -303,45 +306,66 @@ Miniview.prototype = {
         _display.disconnect(this._windowEnteredMonitorId);
         _display.disconnect(this._windowLeftMonitorId);
 
+        if (this._timeout != null) {
+            Mainloop.source_remove(this._timeout);
+        }
+
         if (this._clone) {
             this._clone.destroy();
         }
     },
 
-    /*
+    lookupIndex: function (metaWin) {
+        for (let i = 0; i < this._windowList.length; i++) {
+            if (this._windowList[i] == metaWin) {
+                return i;
+            }
+        }
+        return -1;
+    },
+
     setIndex: function(idx) {
+        global.log(`miniview: setIndex: index=${idx}, current=${this._winIdx}, total=${this._windowList.length}`);
+
         if ((idx >= 0) && (idx < this._windowList.length)) {
             this._winIdx = idx;
-            let win = this._windowList[this._winIdx].get_compositor_private();
+            this._metaWin = this._windowList[this._winIdx];
+            let win = this._metaWin.get_compositor_private();
             this._clone.setSource(win);
+
+            // necessary to not get baffled by locking shenanigans
+            if (this._timeout != null) {
+                Mainloop.source_remove(this._timeout);
+            }
+            this._timeout = Mainloop.timeout_add_seconds(1, Lang.bind(this, this._exportMetaWin));
         }
     },
-    */
+
+    _exportMetaWin: function() {
+        this._state.metaWin = this._metaWin;
+        this._timeout = null;
+    },
 
     _goWindowUp: function() {
-        this._winIdx += 1;
-        if (this._winIdx >= this._windowList.length) {
-            this._winIdx = 0;
+        let idx = this._winIdx + 1;
+        if (idx >= this._windowList.length) {
+            idx = 0;
         }
-
-        let win = this._windowList[this._winIdx].get_compositor_private();
-        this._clone.setSource(win);
+        this.setIndex(idx);
     },
 
     _goWindowDown: function() {
-        this._winIdx -= 1;
-        if (this._winIdx < 0) {
-            this._winIdx = this._windowList.length - 1;
+        let idx = this._winIdx - 1;
+        if (idx < 0) {
+            idx = this._windowList.length - 1;
         }
-
-        let win = this._windowList[this._winIdx].get_compositor_private();
-        this._clone.setSource(win);
+        this.setIndex(idx);
     },
 
     _windowEnteredMonitor : function(metaScreen, monitorIndex, metaWin) {
         if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
-            var title = metaWin.get_title();
-            var index = this._windowList.length;
+            let title = metaWin.get_title();
+            let index = this._windowList.length;
             global.log(`miniview: _windowEnteredMonitor: index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
             this._insertWindow(metaWin);
         }
@@ -365,53 +389,54 @@ Miniview.prototype = {
             return;
         }
 
-        if (this._lookupIndex(metaWin) != -1) {
+        // window already in the list?
+        if (this.lookupIndex(metaWin) != -1) {
             return;
         }
 
+        // add to list
         this._windowList.push(metaWin);
 
         // got our first window
         if (this._shouldShow && (this._windowList.length == 1)) {
-            this._winIdx == 0;
-            this._clone.setSource(win);
+            this.setIndex(0);
             this._clone.actor.visible = true;
         }
     },
 
     _windowLeftMonitor : function(metaScreen, monitorIndex, metaWin) {
         if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
-            var title = metaWin.get_title();
-            var index = this._lookupIndex(metaWin);
+            let title = metaWin.get_title();
+            let index = this.lookupIndex(metaWin);
             global.log(`miniview: _windowLeftMonitor   : index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
             this._removeWindow(metaWin);
         }
     },
 
     _removeWindow: function(metaWin) {
-        let win = metaWin.get_compositor_private();
-        let index = this._lookupIndex(metaWin);
+        let index = this.lookupIndex(metaWin);
 
+        // not in list?
         if (index == -1) {
             return;
         }
 
+        // remove from list
         this._windowList.splice(index, 1);
+
+        // hide if no windows
+        if (this._windowList.length == 0) {
+            this._winIdx == null;
+            this._clone.actor.visible = false;
+            return;
+        }
 
         // check if is current window and update current window index if higher
         if (index == this._winIdx) {
-            if (this._winIdx == this._windowList.length) {
-                this._winIdx = 0;
-            }
-
-            if (this._windowList.length) {
-                let new_win = this._windowList[this._winIdx].get_compositor_private();
-                this._clone.setSource(new_win);
-            } else {
-                this._clone.actor.visible = false;
-            }
-        } else if (this._winIdx > index) {
-            this._winIdx -= 1;
+            var idx = index % this._windowList.length;
+            this.setIndex(idx); // update the window
+        } else if (index < this._winIdx) {
+            self._winIdx = this._winIdx - 1; // only the index, not the window itself
         }
     },
 
@@ -419,15 +444,6 @@ Miniview.prototype = {
     _isOverviewWindow: function (metaWin) {
         let tracker = Shell.WindowTracker.get_default();
         return tracker.is_window_interesting(metaWin);
-    },
-
-    _lookupIndex: function (metaWindow) {
-        for (let i = 0; i < this._windowList.length; i++) {
-            if (this._windowList[i] == metaWindow) {
-                return i;
-            }
-        }
-        return -1;
     },
 
     _showMiniview: function() {
@@ -458,13 +474,12 @@ Miniview.prototype = {
 
     _realizeMiniview: function() {
         if (this._shouldShow) {
-            if (this._windowList.length) {
-                if (this._winIdx >= this._windowList.length) {
-                    this._winIdx = 0;
+            if (this._windowList.length > 0) {
+                let idx = this._winIdx;
+                if ((idx == null) || (idx >= this._windowList.length) || (idx < 0)) {
+                    idx = 0;
                 }
-
-                let win = this._windowList[this._winIdx].get_compositor_private();
-                this._clone.setSource(win);
+                this.setIndex(idx);
                 this._clone.actor.visible = true;
             }
         } else {
@@ -482,7 +497,7 @@ let _miniview;
 
 // session state
 let state = {
-    // idx: -1,
+    metaWin: null,
     pos_x: null,
     pos_y: null,
     size_x: null,
@@ -492,25 +507,20 @@ let state = {
 function enable() {
     global.log(`miniview: enable`)
 
-    _miniview = new Miniview();
+    _miniview = new Miniview(state);
     _indicator = new Indicator(_miniview);
     Main.panel.addToStatusArea('miniview',_indicator);
 
-    // global.log(`miniview: idx = ${state.idx}`);
+    global.log(`miniview: metaWin = ${state.metaWin}`);
     global.log(`miniview: pos_x = ${state.pos_x}`);
     global.log(`miniview: pos_y = ${state.pos_y}`);
     global.log(`miniview: size_x = ${state.size_x}`);
     global.log(`miniview: size_y = ${state.size_y}`);
 
-    // some window shenanigans happening before destroy
-    /*
-    if (state.idx >= 0) {
-        var nwin = _miniview._windowList.length;
-        var idx1 = nwin - state.idx - 1;
-        _miniview.setIndex(idx1);
+    if (state.metaWin != null) {
+        let idx = _miniview.lookupIndex(state.metaWin);
+        _miniview.setIndex(idx);
     }
-    */
-
     if (state.pos_x != null) {
         _miniview._clone.actor.x = state.pos_x;
     }
@@ -528,13 +538,12 @@ function enable() {
 function disable() {
     global.log('miniview: disable')
 
-    // state.idx = _miniview._winIdx;
     state.pos_x = _miniview._clone.actor.x;
     state.pos_y = _miniview._clone.actor.y;
     state.size_x = _miniview._clone.actor.scale_x;
     state.size_y = _miniview._clone.actor.scale_y;
 
-    // global.log(`miniview: idx = ${state.idx}`);
+    global.log(`miniview: metaWin = ${state.metaWin}`);
     global.log(`miniview: pos_x = ${state.pos_x}`);
     global.log(`miniview: pos_y = ${state.pos_y}`);
     global.log(`miniview: size_x = ${state.size_x}`);
