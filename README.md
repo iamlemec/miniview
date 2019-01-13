@@ -14,4 +14,4 @@ GNOME Shell plugin that shows a preview of another window (like picture-in-pictu
 
 ### Contributors
 
-Thanks @antielektron and @jonnius!
+Thanks [@antielektron](https://github.com/antielektron) and [@jonnius](https://github.com/jonnius)!
