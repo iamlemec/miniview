@@ -139,6 +139,7 @@ WindowClone.prototype = {
         this.actor.connect('enter-event', Lang.bind(this, this._onMouseEnter));
         this.actor.connect('leave-event', Lang.bind(this, this._onMouseLeave));
 
+        // interface state
         this.inMove = false;
         this.inResize = false;
         this.inResizeCtrl = false;
@@ -255,14 +256,12 @@ WindowClone.prototype = {
 
             if (this.user_opacity > 255) {
                 this.user_opacity = 255;
-            } else if (this.user_opacity < 0) {
-                this.user_opacity = 0;
+            } else if (this.user_opacity < 35) {
+                this.user_opacity = 35;
             }
 
             this.actor.opacity = this.user_opacity;
-
         } else {
-
             if (direction == Clutter.ScrollDirection.UP) {
                 this.emit('scroll-up');
             } else if (direction == Clutter.ScrollDirection.DOWN) {
@@ -360,7 +359,7 @@ Miniview.prototype = {
     },
 
     setIndex: function(idx) {
-        global.log(`miniview: setIndex: index=${idx}, current=${this._winIdx}, total=${this._windowList.length}`);
+        // global.log(`miniview: setIndex: index=${idx}, current=${this._winIdx}, total=${this._windowList.length}`);
 
         if ((idx >= 0) && (idx < this._windowList.length)) {
             this._winIdx = idx;
@@ -399,9 +398,11 @@ Miniview.prototype = {
 
     _windowEnteredMonitor : function(metaScreen, monitorIndex, metaWin) {
         if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
+            /*
             let title = metaWin.get_title();
             let index = this._windowList.length;
             global.log(`miniview: _windowEnteredMonitor: index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
+            */
             this._insertWindow(metaWin);
         }
     },
@@ -441,9 +442,11 @@ Miniview.prototype = {
 
     _windowLeftMonitor : function(metaScreen, monitorIndex, metaWin) {
         if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
+            /*
             let title = metaWin.get_title();
             let index = this.lookupIndex(metaWin);
             global.log(`miniview: _windowLeftMonitor   : index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
+            */
             this._removeWindow(metaWin);
         }
     },
@@ -471,7 +474,7 @@ Miniview.prototype = {
             var idx = index % this._windowList.length;
             this.setIndex(idx); // update the window
         } else if (index < this._winIdx) {
-            self._winIdx = this._winIdx - 1; // only the index, not the window itself
+            self._winIdx -= 1; // only the index, not the window itself
         }
     },
 
@@ -523,34 +526,31 @@ Miniview.prototype = {
     },
 }
 
+// one time initializations
 function init(meta) {
     Convenience.initTranslations('miniview');
 }
 
+// top level ui elements
 let _indicator;
 let _miniview;
 
-// session state
+// session state - ephemeral parameters
 let state = {
     metaWin: null,
     pos_x: null,
     pos_y: null,
     size_x: null,
-    size_y: null
+    size_y: null,
+    opacity: null
 }
 
 function enable() {
-    global.log(`miniview: enable`)
+    // global.log(`miniview: enable`)
 
     _miniview = new Miniview(state);
     _indicator = new Indicator(_miniview);
     Main.panel.addToStatusArea('miniview',_indicator);
-
-    global.log(`miniview: metaWin = ${state.metaWin}`);
-    global.log(`miniview: pos_x = ${state.pos_x}`);
-    global.log(`miniview: pos_y = ${state.pos_y}`);
-    global.log(`miniview: size_x = ${state.size_x}`);
-    global.log(`miniview: size_y = ${state.size_y}`);
 
     if (state.metaWin != null) {
         let idx = _miniview.lookupIndex(state.metaWin);
@@ -568,21 +568,20 @@ function enable() {
     if (state.size_y != null) {
         _miniview._clone.actor.scale_y = state.size_y;
     }
+    if (state.opacity != null) {
+        _miniview._clone.user_opacity = state.opacity;
+        _miniview._clone.actor.opacity = state.opacity;
+    }
 }
 
 function disable() {
-    global.log('miniview: disable')
+    // global.log('miniview: disable')
 
     state.pos_x = _miniview._clone.actor.x;
     state.pos_y = _miniview._clone.actor.y;
     state.size_x = _miniview._clone.actor.scale_x;
     state.size_y = _miniview._clone.actor.scale_y;
-
-    global.log(`miniview: metaWin = ${state.metaWin}`);
-    global.log(`miniview: pos_x = ${state.pos_x}`);
-    global.log(`miniview: pos_y = ${state.pos_y}`);
-    global.log(`miniview: size_x = ${state.size_x}`);
-    global.log(`miniview: size_y = ${state.size_y}`);
+    state.opacity = _miniview._clone.user_opacity;
 
     Main.wm.removeKeybinding('toggle-miniview');
     _indicator.destroy();
