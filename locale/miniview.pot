@@ -32,3 +32,7 @@ msgstr ""
 #: extension.js:54
 msgid "Previous Window"
 msgstr ""
+
+#: extension.js:68
+msgid "Reset Opacity"
+msgstr ""
