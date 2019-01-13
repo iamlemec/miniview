@@ -554,6 +554,10 @@ function enable() {
 
     if (state.metaWin != null) {
         let idx = _miniview.lookupIndex(state.metaWin);
+        if (idx == -1) { // maybe window was closed while locked?
+            idx = 0;
+            state.metaWin = null;
+        }
         _miniview.setIndex(idx);
     }
     if (state.pos_x != null) {
