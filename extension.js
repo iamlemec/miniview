@@ -64,8 +64,8 @@ const Indicator = new Lang.Class({
         this._tsPrev = new PopupMenu.PopupMenuItem(_("Previous Window"));
         this._tsPrev.connect('activate', Lang.bind(this, this._onPrev));
         this.menu.addMenuItem(this._tsPrev);
-        
-        // reset Opacity (in case miniview got lost :) )
+
+        // reset opacity (in case miniview got lost :) )
         this._tsResetOpacity = new PopupMenu.PopupMenuItem(_("Reset Opacity"));
         this._tsResetOpacity.connect('activate', Lang.bind(this, this._onResetOpacity));
         this.menu.addMenuItem(this._tsResetOpacity);
@@ -109,8 +109,7 @@ const Indicator = new Lang.Class({
 });
 
 WindowClone.prototype = {
-    _init : function(miniview) {
-        this._miniview = miniview;
+    _init : function() {
         this._windowClone = new Clutter.Clone();
 
         // The MetaShapedTexture that we clone has a size that includes
@@ -301,7 +300,10 @@ function Miniview(state) {
 Miniview.prototype = {
     _init: function(state) {
         this._state = state;
-        this._timeout = null;
+        this._stateTimeout = null;
+
+        this._lastIdx = null;
+        this._lastTimeout = null;
 
         let baseWindowList = global.get_window_actors();
         this._windowList = [];
@@ -312,7 +314,7 @@ Miniview.prototype = {
             }
         }
 
-        this._clone = new WindowClone(this);
+        this._clone = new WindowClone();
         this._clone.connect('scroll-up', Lang.bind(this, this._goWindowUp));
         this._clone.connect('scroll-down', Lang.bind(this, this._goWindowDown));
 
@@ -340,8 +342,8 @@ Miniview.prototype = {
         _display.disconnect(this._windowEnteredMonitorId);
         _display.disconnect(this._windowLeftMonitorId);
 
-        if (this._timeout != null) {
-            Mainloop.source_remove(this._timeout);
+        if (this._stateTimeout != null) {
+            Mainloop.source_remove(this._stateTimeout);
         }
 
         if (this._clone) {
@@ -368,16 +370,16 @@ Miniview.prototype = {
             this._clone.setSource(win);
 
             // necessary to not get baffled by locking shenanigans
-            if (this._timeout != null) {
-                Mainloop.source_remove(this._timeout);
+            if (this._stateTimeout != null) {
+                Mainloop.source_remove(this._stateTimeout);
             }
-            this._timeout = Mainloop.timeout_add_seconds(1, Lang.bind(this, this._exportMetaWin));
+            this._stateTimeout = Mainloop.timeout_add_seconds(1, Lang.bind(this,
+                function() {
+                    this._state.metaWin = this._metaWin;
+                    this._stateTimeout = null;
+                }
+            ));
         }
-    },
-
-    _exportMetaWin: function() {
-        this._state.metaWin = this._metaWin;
-        this._timeout = null;
     },
 
     _goWindowUp: function() {
@@ -398,11 +400,9 @@ Miniview.prototype = {
 
     _windowEnteredMonitor : function(metaScreen, monitorIndex, metaWin) {
         if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
-            /*
             let title = metaWin.get_title();
             let index = this._windowList.length;
             global.log(`miniview: _windowEnteredMonitor: index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
-            */
             this._insertWindow(metaWin);
         }
     },
@@ -430,8 +430,18 @@ Miniview.prototype = {
             return;
         }
 
-        // add to list
-        this._windowList.push(metaWin);
+        // add to list - possibly in original place in case of cross-monitor dragging
+        if (this._lastIdx != null) {
+            this._windowList.splice(this._lastIdx, 0, metaWin);
+            this.setIndex(this._lastIdx);
+            if (this._lastTimeout != null) {
+                Mainloop.source_remove(this._lastTimeout);
+                this._lastTimeout = null;
+            }
+            this._lastIdx = null;
+        } else {
+            this._windowList.push(metaWin);
+        }
 
         // got our first window
         if (this._shouldShow && (this._windowList.length == 1)) {
@@ -442,11 +452,9 @@ Miniview.prototype = {
 
     _windowLeftMonitor : function(metaScreen, monitorIndex, metaWin) {
         if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
-            /*
             let title = metaWin.get_title();
             let index = this.lookupIndex(metaWin);
             global.log(`miniview: _windowLeftMonitor   : index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
-            */
             this._removeWindow(metaWin);
         }
     },
@@ -458,6 +466,19 @@ Miniview.prototype = {
         if (index == -1) {
             return;
         }
+
+        // store index briefly, in case of dragging between monitors
+        // delay is usually about 1 millisecond in testing, so give it 100
+        this._lastIdx = index;
+        if (this._lastTimeout != null) {
+            Mainloop.source_remove(this._lastTimeout);
+        }
+        this._lastTimeout = Mainloop.timeout_add(100, Lang.bind(this,
+            function() {
+                this._lastIdx = null;
+                this._lastTimeout = null;
+            }
+        ));
 
         // remove from list
         this._windowList.splice(index, 1);
