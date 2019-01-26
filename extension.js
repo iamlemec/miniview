@@ -109,7 +109,8 @@ const Indicator = new Lang.Class({
 });
 
 WindowClone.prototype = {
-    _init : function() {
+    _init : function(miniview) {
+        this._miniview = miniview;
         this._windowClone = new Clutter.Clone();
 
         // The MetaShapedTexture that we clone has a size that includes
@@ -314,7 +315,7 @@ Miniview.prototype = {
             }
         }
 
-        this._clone = new WindowClone();
+        this._clone = new WindowClone(this);
         this._clone.connect('scroll-up', Lang.bind(this, this._goWindowUp));
         this._clone.connect('scroll-down', Lang.bind(this, this._goWindowDown));
 
@@ -433,12 +434,13 @@ Miniview.prototype = {
         // add to list - possibly in original place in case of cross-monitor dragging
         if (this._lastIdx != null) {
             this._windowList.splice(this._lastIdx, 0, metaWin);
-            this.setIndex(this._lastIdx);
-            if (this._lastTimeout != null) {
-                Mainloop.source_remove(this._lastTimeout);
-                this._lastTimeout = null;
+            if (this._lastActive) {
+                this.setIndex(this._lastIdx);
             }
+            Mainloop.source_remove(this._lastTimeout);
             this._lastIdx = null;
+            this._lastActive = null;
+            this._lastTimeout = null;
         } else {
             this._windowList.push(metaWin);
         }
@@ -470,12 +472,14 @@ Miniview.prototype = {
         // store index briefly, in case of dragging between monitors
         // delay is usually about 1 millisecond in testing, so give it 100
         this._lastIdx = index;
+        this._lastActive = (index == this._winIdx);
         if (this._lastTimeout != null) {
             Mainloop.source_remove(this._lastTimeout);
         }
         this._lastTimeout = Mainloop.timeout_add(100, Lang.bind(this,
             function() {
                 this._lastIdx = null;
+                this._lastActive = null;
                 this._lastTimeout = null;
             }
         ));
