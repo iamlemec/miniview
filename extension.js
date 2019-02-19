@@ -401,9 +401,9 @@ Miniview.prototype = {
 
     _windowEnteredMonitor : function(metaScreen, monitorIndex, metaWin) {
         if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
-            let title = metaWin.get_title();
-            let index = this._windowList.length;
-            global.log(`miniview: _windowEnteredMonitor: index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
+            // let title = metaWin.get_title();
+            // let index = this._windowList.length;
+            // global.log(`miniview: _windowEnteredMonitor: index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
             this._insertWindow(metaWin);
         }
     },
@@ -454,9 +454,9 @@ Miniview.prototype = {
 
     _windowLeftMonitor : function(metaScreen, monitorIndex, metaWin) {
         if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
-            let title = metaWin.get_title();
-            let index = this.lookupIndex(metaWin);
-            global.log(`miniview: _windowLeftMonitor   : index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
+            // let title = metaWin.get_title();
+            // let index = this.lookupIndex(metaWin);
+            // global.log(`miniview: _windowLeftMonitor   : index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
             this._removeWindow(metaWin);
         }
     },
