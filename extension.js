@@ -48,8 +48,10 @@ const Indicator = new Lang.Class({
 
         // create menu ui
         this.parent(St.Align.START);
-        this.label = new St.Label({ text:_("Mini"), y_align: Clutter.ActorAlign.CENTER });
-        this.actor.add_actor(this.label);
+        let box = new St.BoxLayout();
+        let icon = new St.Icon({ icon_name: 'emblem-photos-symbolic', style_class: 'system-status-icon emotes-icon'});
+        box.add(icon);
+        this.actor.add_child(box);
 
         // on/off toggle
         this._tsToggle = new PopupMenu.PopupSwitchMenuItem(_("Enable Miniview"), false, { style_class: 'popup-subtitle-menu-item' });
