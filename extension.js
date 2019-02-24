@@ -50,7 +50,9 @@ const Indicator = new Lang.Class({
         this.parent(St.Align.START);
         let box = new St.BoxLayout();
         let icon = new St.Icon({ icon_name: 'emblem-photos-symbolic', style_class: 'system-status-icon emotes-icon'});
+
         box.add(icon);
+        box.add(PopupMenu.arrowIcon(St.Side.BOTTOM));
         this.actor.add_child(box);
 
         // on/off toggle
