@@ -284,6 +284,10 @@ WindowClone.prototype = {
             let [pos_x,pos_y] = event.get_coords();
             this.actor.x = pos_x - this.offset_x;
             this.actor.y = pos_y - this.offset_y;
+        } else if (this.inResize) {
+            this.inResize = false;
+        } else if (this.inResizeCtrl) {
+            this.inResizeCtrl = false;
         }
         else {
             // set opacity back to user value
