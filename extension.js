@@ -297,7 +297,7 @@ WindowClone.prototype = {
 
     setSource: function(win) {
         this._metaWin = win.meta_window;
-        this._windowClone.set_source(win.get_texture());
+        this._windowClone.set_source(win);
     }
 };
 Signals.addSignalMethods(WindowClone.prototype);
