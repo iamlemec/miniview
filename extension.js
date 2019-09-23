@@ -53,7 +53,7 @@ const Indicator = new Lang.Class({
 
         box.add(icon);
         box.add(PopupMenu.arrowIcon(St.Side.BOTTOM));
-        this.actor.add_child(box);
+        this.add_child(box);
 
         // on/off toggle
         this._tsToggle = new PopupMenu.PopupSwitchMenuItem(_("Enable Miniview"), false, { style_class: 'popup-subtitle-menu-item' });
