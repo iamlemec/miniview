@@ -12,7 +12,6 @@ const PopupMenu = imports.ui.popupMenu;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
-const Convenience = Me.imports.convenience;
 const Config = imports.misc.config;
 
 const Gettext = imports.gettext.domain('miniview');
@@ -41,7 +40,7 @@ const Indicator = new Lang.Class({
         this._miniview = miniview;
 
         // get settings from schema
-        this._settings = Convenience.getSettings();
+        this._settings = ExtensionUtils.getSettings();
         this._showme = this._settings.get_boolean('showme');
         this._settings.connect('changed', Lang.bind(this, this._settingsChanged));
         Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, Lang.bind(this, this._onToggled));
@@ -561,7 +560,7 @@ Miniview.prototype = {
 
 // one time initializations
 function init(meta) {
-    Convenience.initTranslations('miniview');
+    ExtensionUtils.initTranslations('miniview');
 }
 
 // top level ui elements
