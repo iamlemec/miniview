@@ -58,9 +58,9 @@ class Indicator extends PanelMenu.Button {
         this.menu.addMenuItem(this._tsPrev);
 
         // reset opacity (in case miniview got lost :) )
-        this._tsResetOpacity = new PopupMenu.PopupMenuItem(_("Reset Opacity"));
-        this._tsResetOpacity.connect('activate', Lang.bind(this, this._onResetOpacity));
-        this.menu.addMenuItem(this._tsResetOpacity);
+        this._tsResetMiniview = new PopupMenu.PopupMenuItem(_("Reset Miniview"));
+        this._tsResetMiniview.connect('activate', Lang.bind(this, this._onResetMiniview));
+        this.menu.addMenuItem(this._tsResetMiniview);
 
         // init ui
         this._reflectState();
@@ -94,9 +94,13 @@ class Indicator extends PanelMenu.Button {
         this._miniview._goWindowUp();
     }
 
-    _onResetOpacity() {
+    _onResetMiniview() {
         this._miniview._clone.user_opacity = 255;
         this._miniview._clone.opacity = 255;
+        this._miniview._clone.scale_x = 0.2;
+        this._miniview._clone.scale_y = 0.2;
+        this._miniview._clone.x = 100;
+        this._miniview._clone.y = 100;
     }
 });
 
