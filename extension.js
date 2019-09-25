@@ -12,6 +12,9 @@ const Config = imports.misc.config;
 const Gettext = imports.gettext.domain('miniview');
 const _ = Gettext.gettext;
 
+let _extension = imports.misc.extensionUtils.getCurrentExtension();
+let _metadata = _extension.metadata;
+
 const MINIVIEW_SETTINGS_SCHEMA = 'org.gnome.shell.extensions.miniview';
 
 // get gnome shell version
@@ -23,8 +26,8 @@ if ((gsv_major >= 3) && (gsv_minor >= 30)) {
     _display = global.screen;
 }
 
-let Indicator = GObject.registerClass(
-class Indicator extends PanelMenu.Button {
+let MiniviewIndicator = GObject.registerClass(
+class MiniviewIndicator extends PanelMenu.Button {
     _init(miniview) {
         this._miniview = miniview;
 
@@ -61,6 +64,11 @@ class Indicator extends PanelMenu.Button {
         this._tsResetMiniview = new PopupMenu.PopupMenuItem(_("Reset Miniview"));
         this._tsResetMiniview.connect('activate', Lang.bind(this, this._onResetMiniview));
         this.menu.addMenuItem(this._tsResetMiniview);
+
+        // extension preferences
+        this._tsPreferences = new PopupMenu.PopupMenuItem(_("Preferences"));
+        this._tsPreferences.connect('activate', Lang.bind(this, this._onPreferences));
+        this.menu.addMenuItem(this._tsPreferences);
 
         // init ui
         this._reflectState();
@@ -101,6 +109,18 @@ class Indicator extends PanelMenu.Button {
         this._miniview._clone.scale_y = 0.2;
         this._miniview._clone.x = 100;
         this._miniview._clone.y = 100;
+    }
+
+    _onPreferences() {
+        let _appSys = Shell.AppSystem.get_default();
+        let _gsmPrefs = _appSys.lookup_app('gnome-shell-extension-prefs.desktop');
+        if (_gsmPrefs.get_state() === _gsmPrefs.SHELL_APP_STATE_RUNNING) {
+            _gsmPrefs.activate();
+        } else {
+            let info = _gsmPrefs.get_app_info();
+            let timestamp = global.display.get_current_time_roundtrip();
+            info.launch_uris([_metadata.uuid], global.create_app_launch_context(timestamp, -1));
+        }
     }
 });
 
@@ -566,7 +586,7 @@ function enable() {
     // global.log(`miniview: enable`)
 
     _miniview = new Miniview(state);
-    _indicator = new Indicator(_miniview);
+    _indicator = new MiniviewIndicator(_miniview);
     Main.panel.addToStatusArea('miniview',_indicator);
 
     if (state.metaWin != null) {
