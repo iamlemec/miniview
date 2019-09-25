@@ -104,12 +104,12 @@ class Indicator extends PanelMenu.Button {
     }
 });
 
-let WindowClone = GObject.registerClass({
+let MiniviewClone = GObject.registerClass({
     Signals: {
         'scroll-up': {},
         'scroll-down': {}
     }
-}, class WindowClone extends Clutter.Group {
+}, class MiniviewClone extends Clutter.Group {
     _init(miniview) {
         this._miniview = miniview;
         this._windowClone = new Clutter.Clone();
@@ -307,7 +307,7 @@ class Miniview {
             }
         }
 
-        this._clone = new WindowClone(this);
+        this._clone = new MiniviewClone(this);
         this._clone.connect('scroll-up', Lang.bind(this, this._goWindowUp));
         this._clone.connect('scroll-down', Lang.bind(this, this._goWindowDown));
 
