@@ -1,11 +1,7 @@
-const Gio = imports.gi.Gio;
-const Meta = imports.gi.Meta;
-const Clutter = imports.gi.Clutter;
-const St = imports.gi.St;
+const { GObject, Gio, Meta, Clutter, St, Shell } = imports.gi;
 const Lang = imports.lang;
 const Signals = imports.signals;
 const Mainloop = imports.mainloop;
-const Shell = imports.gi.Shell;
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
@@ -32,11 +28,9 @@ function WindowClone(miniview) {
     this._init(miniview);
 }
 
-const Indicator = new Lang.Class({
-    Name: 'MiniviewMenu',
-    Extends: PanelMenu.Button,
-
-    _init: function(miniview) {
+let Indicator = GObject.registerClass(
+class Indicator extends PanelMenu.Button {
+    _init(miniview) {
         this._miniview = miniview;
 
         // get settings from schema
@@ -46,7 +40,7 @@ const Indicator = new Lang.Class({
         Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, Lang.bind(this, this._onToggled));
 
         // create menu ui
-        this.parent(St.Align.START);
+        super._init(St.Align.START);
         let box = new St.BoxLayout();
         let icon = new St.Icon({ icon_name: 'emblem-photos-symbolic', style_class: 'system-status-icon emotes-icon'});
 
@@ -75,40 +69,40 @@ const Indicator = new Lang.Class({
 
         // init ui
         this._reflectState();
-    },
+    }
 
-    _reflectState: function() {
+    _reflectState() {
         this._tsToggle.setToggleState(this._showme);
         if (this._showme) {
             this._miniview._showMiniview();
         } else {
             this._miniview._hideMiniview();
         }
-    },
+    }
 
-    _settingsChanged: function() {
+    _settingsChanged() {
         this._showme = this._settings.get_boolean('showme');
         this._reflectState();
-    },
+    }
 
-    _onToggled: function() {
+    _onToggled() {
         this._showme = !this._showme;
         this._settings.set_boolean('showme', this._showme);
         this._reflectState();
-    },
+    }
 
-    _onNext: function() {
+    _onNext() {
         this._miniview._goWindowDown();
-    },
+    }
 
-    _onPrev: function() {
+    _onPrev() {
         this._miniview._goWindowUp();
-    },
+    }
 
-    _onResetOpacity: function() {
+    _onResetOpacity() {
         this._miniview._clone.user_opacity = 255;
         this._miniview._clone.actor.opacity = 255;
-    },
+    }
 });
 
 WindowClone.prototype = {
@@ -301,12 +295,8 @@ WindowClone.prototype = {
 };
 Signals.addSignalMethods(WindowClone.prototype);
 
-function Miniview(state) {
-  this._init(state);
-}
-
-Miniview.prototype = {
-    _init: function(state) {
+class Miniview {
+    constructor(state) {
         this._state = state;
         this._stateTimeout = null;
 
@@ -341,9 +331,9 @@ Miniview.prototype = {
 
         this._windowEnteredMonitorId = _display.connect('window-entered-monitor', Lang.bind(this, this._windowEnteredMonitor));
         this._windowLeftMonitorId = _display.connect('window-left-monitor', Lang.bind(this, this._windowLeftMonitor));
-    },
+    }
 
-    destroy: function() {
+    destroy() {
         Main.overview.disconnect(this._overviewShowingId);
         Main.overview.disconnect(this._overviewHiddenId);
 
@@ -357,18 +347,18 @@ Miniview.prototype = {
         if (this._clone) {
             this._clone.destroy();
         }
-    },
+    }
 
-    lookupIndex: function (metaWin) {
+    lookupIndex(metaWin) {
         for (let i = 0; i < this._windowList.length; i++) {
             if (this._windowList[i] == metaWin) {
                 return i;
             }
         }
         return -1;
-    },
+    }
 
-    setIndex: function(idx) {
+    setIndex(idx) {
         // global.log(`miniview: setIndex: index=${idx}, current=${this._winIdx}, total=${this._windowList.length}`);
 
         if ((idx >= 0) && (idx < this._windowList.length)) {
@@ -388,34 +378,34 @@ Miniview.prototype = {
                 }
             ));
         }
-    },
+    }
 
-    _goWindowUp: function() {
+    _goWindowUp() {
         let idx = this._winIdx + 1;
         if (idx >= this._windowList.length) {
             idx = 0;
         }
         this.setIndex(idx);
-    },
+    }
 
-    _goWindowDown: function() {
+    _goWindowDown() {
         let idx = this._winIdx - 1;
         if (idx < 0) {
             idx = this._windowList.length - 1;
         }
         this.setIndex(idx);
-    },
+    }
 
-    _windowEnteredMonitor : function(metaScreen, monitorIndex, metaWin) {
+    _windowEnteredMonitor(metaScreen, monitorIndex, metaWin) {
         if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
             // let title = metaWin.get_title();
             // let index = this._windowList.length;
             // global.log(`miniview: _windowEnteredMonitor: index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
             this._insertWindow(metaWin);
         }
-    },
+    }
 
-    _insertWindow : function(metaWin) {
+    _insertWindow(metaWin) {
         let win = metaWin.get_compositor_private();
 
         if (!win) {
@@ -457,18 +447,18 @@ Miniview.prototype = {
             this.setIndex(0);
             this._clone.actor.visible = true;
         }
-    },
+    }
 
-    _windowLeftMonitor : function(metaScreen, monitorIndex, metaWin) {
+    _windowLeftMonitor(metaScreen, monitorIndex, metaWin) {
         if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
             // let title = metaWin.get_title();
             // let index = this.lookupIndex(metaWin);
             // global.log(`miniview: _windowLeftMonitor   : index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
             this._removeWindow(metaWin);
         }
-    },
+    }
 
-    _removeWindow: function(metaWin) {
+    _removeWindow(metaWin) {
         let index = this.lookupIndex(metaWin);
 
         // not in list?
@@ -508,41 +498,41 @@ Miniview.prototype = {
         } else if (index < this._winIdx) {
             self._winIdx -= 1; // only the index, not the window itself
         }
-    },
+    }
 
     // Tests if @win should be shown in the Overview
-    _isOverviewWindow: function (metaWin) {
+    _isOverviewWindow(metaWin) {
         let tracker = Shell.WindowTracker.get_default();
         return tracker.is_window_interesting(metaWin);
-    },
+    }
 
-    _showMiniview: function() {
+    _showMiniview() {
         this._shouldShow = true;
         this._realizeMiniview();
-    },
+    }
 
-    _hideMiniview: function() {
+    _hideMiniview() {
         this._shouldShow = false;
         this._realizeMiniview();
-    },
+    }
 
-    _toggleMiniview: function() {
+    _toggleMiniview() {
         if (this._shouldShow) {
             this._hideMiniview();
         } else {
             this._showMiniview();
         }
-    },
+    }
 
-    _overviewEnter: function() {
+    _overviewEnter() {
         this._clone.actor.visible = false;
-    },
+    }
 
-    _overviewLeave: function() {
+    _overviewLeave() {
         this._realizeMiniview();
-    },
+    }
 
-    _realizeMiniview: function() {
+    _realizeMiniview() {
         if (this._shouldShow) {
             if (this._windowList.length > 0) {
                 let idx = this._winIdx;
@@ -555,7 +545,7 @@ Miniview.prototype = {
         } else {
             this._clone.actor.visible = false;
         }
-    },
+    }
 }
 
 // one time initializations
