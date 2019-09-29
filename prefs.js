@@ -3,6 +3,9 @@ const { GnomeDesktop, GObject, Gtk } = imports.gi;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 
+const Gettext = imports.gettext.domain('miniview');
+const _ = Gettext.gettext;
+
 let MiniviewPrefsWidget = GObject.registerClass(
 class MiniviewPrefsWidget extends Gtk.Box {
     _init() {
@@ -19,7 +22,7 @@ class MiniviewPrefsWidget extends Gtk.Box {
         this._frame = new Gtk.Frame({
             vexpand: false,
             hexpand: true,
-            label: 'Configure Keyboard Shortcuts',
+            label: _('Configure Keyboard Shortcuts'),
         });
 
         // tree model
@@ -41,7 +44,7 @@ class MiniviewPrefsWidget extends Gtk.Box {
         // keybinding name
         let cell1 = new Gtk.CellRendererText();
         let col1 = new Gtk.TreeViewColumn({
-            title: 'Action',
+            title: _('Action'),
             expand: true
         });
 
@@ -62,7 +65,7 @@ class MiniviewPrefsWidget extends Gtk.Box {
         });
 
         let col2 = new Gtk.TreeViewColumn({
-            title: 'Accel'
+            title: _('Accel')
         });
 
         col2.pack_end(cell2, false);
@@ -75,7 +78,7 @@ class MiniviewPrefsWidget extends Gtk.Box {
         this.add(this._frame);
 
         // set up keybindings
-        this._appendHotkey('toggle-miniview', 'Toggle Miniview');
+        this._appendHotkey('toggle-miniview', _('Toggle Miniview'));
 
         // update when settings externally set
         this._settings.connect('changed', (setobj, action) => {

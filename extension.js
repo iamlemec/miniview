@@ -47,26 +47,26 @@ class MiniviewIndicator extends PanelMenu.Button {
         this.add_child(box);
 
         // on/off toggle
-        this._tsToggle = new PopupMenu.PopupSwitchMenuItem(_("Enable Miniview"), false, { style_class: 'popup-subtitle-menu-item' });
+        this._tsToggle = new PopupMenu.PopupSwitchMenuItem(_('Enable Miniview'), false, { style_class: 'popup-subtitle-menu-item' });
         this._tsToggle.connect('toggled', Lang.bind(this, this._onToggled));
         this.menu.addMenuItem(this._tsToggle);
 
         // cycling through windows
-        this._tsNext = new PopupMenu.PopupMenuItem(_("Next Window"));
+        this._tsNext = new PopupMenu.PopupMenuItem(_('Next Window'));
         this._tsNext.connect('activate', Lang.bind(this, this._onNext));
         this.menu.addMenuItem(this._tsNext);
 
-        this._tsPrev = new PopupMenu.PopupMenuItem(_("Previous Window"));
+        this._tsPrev = new PopupMenu.PopupMenuItem(_('Previous Window'));
         this._tsPrev.connect('activate', Lang.bind(this, this._onPrev));
         this.menu.addMenuItem(this._tsPrev);
 
         // reset opacity (in case miniview got lost :) )
-        this._tsResetMiniview = new PopupMenu.PopupMenuItem(_("Reset Miniview"));
+        this._tsResetMiniview = new PopupMenu.PopupMenuItem(_('Reset Miniview'));
         this._tsResetMiniview.connect('activate', Lang.bind(this, this._onResetMiniview));
         this.menu.addMenuItem(this._tsResetMiniview);
 
         // extension preferences
-        this._tsPreferences = new PopupMenu.PopupMenuItem(_("Preferences"));
+        this._tsPreferences = new PopupMenu.PopupMenuItem(_('Preferences'));
         this._tsPreferences.connect('activate', Lang.bind(this, this._onPreferences));
         this.menu.addMenuItem(this._tsPreferences);
 
