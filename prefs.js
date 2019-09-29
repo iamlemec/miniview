@@ -15,13 +15,12 @@ class MiniviewPrefsWidget extends Gtk.Box {
         // settings
         this._settings = ExtensionUtils.getSettings();
 
-        // label
-        this._label = new Gtk.Label({
-            halign: Gtk.Align.START,
+        // frame
+        this._frame = new Gtk.Frame({
             vexpand: false,
-            margin: 3
+            hexpand: true,
+            label: 'Configure Keyboard Shortcuts',
         });
-        this._label.set_markup('<b>Configure Keyboard Shortcuts</b>');
 
         // tree model
         this._model = new Gtk.ListStore();
@@ -33,16 +32,17 @@ class MiniviewPrefsWidget extends Gtk.Box {
         ]);
 
         this._treeview = new Gtk.TreeView({
-            'vexpand': false,
-            'hexpand': true,
-            'model': this._model
+            vexpand: false,
+            hexpand: true,
+            margin: 10,
+            model: this._model
         });
 
         // keybinding name
         let cell1 = new Gtk.CellRendererText();
         let col1 = new Gtk.TreeViewColumn({
-            'title': 'Action',
-            'expand': true
+            title: 'Action',
+            expand: true
         });
 
         col1.pack_start(cell1, true);
@@ -51,8 +51,8 @@ class MiniviewPrefsWidget extends Gtk.Box {
 
         // keybinding information
         let cell2 = new Gtk.CellRendererAccel({
-            'editable': true,
-            'accel-mode': Gtk.CellRendererAccelMode.GTK
+            editable: true,
+            accel_mode: Gtk.CellRendererAccelMode.GTK
         });
         cell2.connect('accel-edited', (rend, colname, key, mods) => {
             this._setKeybinding(colname, key, mods);
@@ -62,7 +62,7 @@ class MiniviewPrefsWidget extends Gtk.Box {
         });
 
         let col2 = new Gtk.TreeViewColumn({
-            'title': 'Accel'
+            title: 'Accel'
         });
 
         col2.pack_end(cell2, false);
@@ -71,8 +71,8 @@ class MiniviewPrefsWidget extends Gtk.Box {
         this._treeview.append_column(col2);
 
         // layout
-        this.add(this._label);
-        this.add(this._treeview);
+        this._frame.add(this._treeview);
+        this.add(this._frame);
 
         // set up keybindings
         this._appendHotkey('toggle-miniview', 'Toggle Miniview');
