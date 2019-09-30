@@ -60,7 +60,7 @@ class MiniviewIndicator extends PanelMenu.Button {
         this._tsPrev.connect('activate', Lang.bind(this, this._onPrev));
         this.menu.addMenuItem(this._tsPrev);
 
-        // reset opacity (in case miniview got lost :) )
+        // reset ephemeral parameters (in case miniview got lost :) )
         this._tsResetMiniview = new PopupMenu.PopupMenuItem(_('Reset Miniview'));
         this._tsResetMiniview.connect('activate', Lang.bind(this, this._onResetMiniview));
         this.menu.addMenuItem(this._tsResetMiniview);
@@ -511,7 +511,7 @@ class Miniview {
             var idx = index % this._windowList.length;
             this.setIndex(idx); // update the window
         } else if (index < this._winIdx) {
-            self._winIdx -= 1; // only the index, not the window itself
+            this._winIdx -= 1; // only the index, not the window itself
         }
     }
 
@@ -587,7 +587,7 @@ function enable() {
 
     _miniview = new Miniview(state);
     _indicator = new MiniviewIndicator(_miniview);
-    Main.panel.addToStatusArea('miniview',_indicator);
+    Main.panel.addToStatusArea('miniview', _indicator);
 
     if (state.metaWin != null) {
         let idx = _miniview.lookupIndex(state.metaWin);
