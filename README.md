@@ -3,6 +3,8 @@ miniview
 
 GNOME Shell plugin that shows a preview of another window (like picture-in-picture on a TV)
 
+![miniview screenshot](screenshot.png)
+
 ### Usage
 
 - Left-mouse drag: move preview window
