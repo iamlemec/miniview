@@ -6,24 +6,25 @@ const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
 
-const ExtensionUtils = imports.misc.extensionUtils;
-const Config = imports.misc.config;
-
 const Gettext = imports.gettext.domain('miniview');
 const _ = Gettext.gettext;
 
-let _extension = imports.misc.extensionUtils.getCurrentExtension();
-let _metadata = _extension.metadata;
+const Config = imports.misc.config;
+const ExtensionUtils = imports.misc.extensionUtils;
+const Me = ExtensionUtils.getCurrentExtension();
 
-const MINIVIEW_SETTINGS_SCHEMA = 'org.gnome.shell.extensions.miniview';
-
-// get gnome shell version
-let _display;
-let [gsv_major, gsv_minor] = Config.PACKAGE_VERSION.split('.', 2)
+// compatibility for gnome-shell < 3.30
+let [gsv_major, gsv_minor] = Config.PACKAGE_VERSION.split('.', 2);
+let _display, _initTranslations, _getSettings;
 if ((gsv_major >= 3) && (gsv_minor >= 30)) {
     _display = global.display;
+    _initTranslations = ExtensionUtils.initTranslations;
+    _getSettings = ExtensionUtils.getSettings;
 } else {
+    const Convenience = Me.imports.convenience;
     _display = global.screen;
+    _initTranslations = Convenience.initTranslations;
+    _getSettings = Convenience.getSettings;
 }
 
 let MiniviewIndicator = GObject.registerClass(
@@ -32,7 +33,7 @@ class MiniviewIndicator extends PanelMenu.Button {
         this._miniview = miniview;
 
         // get settings from schema
-        this._settings = ExtensionUtils.getSettings();
+        this._settings = _getSettings();
         this._showme = this._settings.get_boolean('showme');
         this._settings.connect('changed', Lang.bind(this, this._settingsChanged));
         Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, Lang.bind(this, this._onToggled));
@@ -118,8 +119,8 @@ class MiniviewIndicator extends PanelMenu.Button {
             _gsmPrefs.activate();
         } else {
             let info = _gsmPrefs.get_app_info();
-            let timestamp = global.display.get_current_time_roundtrip();
-            info.launch_uris([_metadata.uuid], global.create_app_launch_context(timestamp, -1));
+            let timestamp = _display.get_current_time_roundtrip();
+            info.launch_uris([Me.metadata.uuid], global.create_app_launch_context(timestamp, -1));
         }
     }
 });
@@ -565,7 +566,7 @@ class Miniview {
 
 // one time initializations
 function init(meta) {
-    ExtensionUtils.initTranslations('miniview');
+    _initTranslations('miniview');
 }
 
 // top level ui elements
