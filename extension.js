@@ -9,21 +9,29 @@ const PopupMenu = imports.ui.popupMenu;
 const Gettext = imports.gettext.domain('miniview');
 const _ = Gettext.gettext;
 
-const Config = imports.misc.config;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
+const Convenience = Me.imports.convenience;
 
-// compatibility for gnome-shell < 3.30
-let [gsv_major, gsv_minor] = Config.PACKAGE_VERSION.split('.', 2);
-let _display, _initTranslations, _getSettings;
-if ((gsv_major >= 3) && (gsv_minor >= 30)) {
+// compatibility for earlier gnome shell versions
+let _display;
+if (global.display != undefined) {
     _display = global.display;
+} else {
+    _display = global.screen;
+}
+
+let _initTranslations;
+if (ExtensionUtils.initTranslations != undefined) {
     _initTranslations = ExtensionUtils.initTranslations;
+} else {
+    _initTranslations = Convenience.initTranslations;
+}
+
+let _getSettings;
+if (ExtensionUtils.getSettings != undefined) {
     _getSettings = ExtensionUtils.getSettings;
 } else {
-    const Convenience = Me.imports.convenience;
-    _display = global.screen;
-    _initTranslations = Convenience.initTranslations;
     _getSettings = Convenience.getSettings;
 }
 
