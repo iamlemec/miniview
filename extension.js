@@ -15,10 +15,10 @@ const Convenience = Me.imports.convenience;
 
 // compatibility for earlier gnome shell versions
 let _display;
-if (global.display != undefined) {
-    _display = global.display;
-} else {
+if (global.screen != undefined) {
     _display = global.screen;
+} else {
+    _display = global.display;
 }
 
 let _initTranslations;
@@ -35,9 +35,11 @@ if (ExtensionUtils.getSettings != undefined) {
     _getSettings = Convenience.getSettings;
 }
 
-let MiniviewIndicator = GObject.registerClass(
-class MiniviewIndicator extends PanelMenu.Button {
-    _init(miniview) {
+const MiniviewIndicator = new Lang.Class({
+    Name: 'MiniviewIndicator',
+    Extends: PanelMenu.Button,
+
+    _init: function(miniview) {
         this._miniview = miniview;
 
         // get settings from schema
@@ -47,7 +49,7 @@ class MiniviewIndicator extends PanelMenu.Button {
         Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, Lang.bind(this, this._onToggled));
 
         // create menu ui
-        super._init(St.Align.START);
+        this.parent._init(St.Align.START);
         let box = new St.BoxLayout();
         let icon = new St.Icon({ icon_name: 'emblem-photos-symbolic', style_class: 'system-status-icon emotes-icon'});
 
@@ -81,46 +83,46 @@ class MiniviewIndicator extends PanelMenu.Button {
 
         // init ui
         this._reflectState();
-    }
+    },
 
-    _reflectState() {
+    _reflectState: function() {
         this._tsToggle.setToggleState(this._showme);
         if (this._showme) {
             this._miniview._showMiniview();
         } else {
             this._miniview._hideMiniview();
         }
-    }
+    },
 
-    _settingsChanged() {
+    _settingsChanged: function() {
         this._showme = this._settings.get_boolean('showme');
         this._reflectState();
-    }
+    },
 
-    _onToggled() {
+    _onToggled: function() {
         this._showme = !this._showme;
         this._settings.set_boolean('showme', this._showme);
         this._reflectState();
-    }
+    },
 
-    _onNext() {
+    _onNext: function() {
         this._miniview._goWindowDown();
-    }
+    },
 
-    _onPrev() {
+    _onPrev: function() {
         this._miniview._goWindowUp();
-    }
+    },
 
-    _onResetMiniview() {
+    _onResetMiniview: function() {
         this._miniview._clone.user_opacity = 255;
         this._miniview._clone.opacity = 255;
         this._miniview._clone.scale_x = 0.2;
         this._miniview._clone.scale_y = 0.2;
         this._miniview._clone.x = 100;
         this._miniview._clone.y = 100;
-    }
+    },
 
-    _onPreferences() {
+    _onPreferences: function() {
         let _appSys = Shell.AppSystem.get_default();
         let _gsmPrefs = _appSys.lookup_app('gnome-shell-extension-prefs.desktop');
         if (_gsmPrefs.get_state() === _gsmPrefs.SHELL_APP_STATE_RUNNING) {
