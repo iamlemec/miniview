@@ -2,6 +2,15 @@
 const { GnomeDesktop, GObject, Gtk } = imports.gi;
 
 const ExtensionUtils = imports.misc.extensionUtils;
+const Me = ExtensionUtils.getCurrentExtension();
+const Convenience = Me.imports.convenience;
+
+let _getSettings;
+if (ExtensionUtils.getSettings != undefined) {
+    _getSettings = ExtensionUtils.getSettings;
+} else {
+    _getSettings = Convenience.getSettings;
+}
 
 const Gettext = imports.gettext.domain('miniview');
 const _ = Gettext.gettext;
@@ -16,7 +25,7 @@ class MiniviewPrefsWidget extends Gtk.Box {
         });
 
         // settings
-        this._settings = ExtensionUtils.getSettings();
+        this._settings = _getSettings();
 
         // frame
         this._frame = new Gtk.Frame({
@@ -78,14 +87,15 @@ class MiniviewPrefsWidget extends Gtk.Box {
         this.add(this._frame);
 
         // set up keybindings
-        this._appendHotkey('toggle-miniview', _('Toggle Miniview'));
+        this._toggleRow = this._appendHotkey('toggle-miniview', _('Toggle Miniview'));
 
         // update when settings externally set
         this._settings.connect('changed', (setobj, action) => {
             if (action == 'toggle-miniview') {
-                let accel = this._settings.get_string(action);
+                let accel = this._settings.get_strv(action)[0];
                 let [key, mods] = Gtk.accelerator_parse(accel);
-                this._model.set(iter, [ 2, 3 ], [ mods, key ]);
+                let row = this._toggleRow;
+                this._model.set(row, [ 2, 3 ], [ mods, key ]);
             }
         });
     }
@@ -95,6 +105,7 @@ class MiniviewPrefsWidget extends Gtk.Box {
         let [key, mods] = Gtk.accelerator_parse(accel);
         let row = this._model.insert(10);
         this._model.set(row, [0, 1, 2, 3], [name, pretty_name, mods, key ]);
+        return row;
     }
 
     _setKeybinding(colname, key, mods) {

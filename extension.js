@@ -49,13 +49,13 @@ const MiniviewIndicator = new Lang.Class({
         Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, Lang.bind(this, this._onToggled));
 
         // create menu ui
-        this.parent._init(St.Align.START);
+        this.parent(St.Align.START);
         let box = new St.BoxLayout();
         let icon = new St.Icon({ icon_name: 'emblem-photos-symbolic', style_class: 'system-status-icon emotes-icon'});
 
         box.add(icon);
         box.add(PopupMenu.arrowIcon(St.Side.BOTTOM));
-        this.add_child(box);
+        this.actor.add_child(box);
 
         // on/off toggle
         this._tsToggle = new PopupMenu.PopupSwitchMenuItem(_('Enable Miniview'), false, { style_class: 'popup-subtitle-menu-item' });
@@ -75,11 +75,6 @@ const MiniviewIndicator = new Lang.Class({
         this._tsResetMiniview = new PopupMenu.PopupMenuItem(_('Reset Miniview'));
         this._tsResetMiniview.connect('activate', Lang.bind(this, this._onResetMiniview));
         this.menu.addMenuItem(this._tsResetMiniview);
-
-        // extension preferences
-        this._tsPreferences = new PopupMenu.PopupMenuItem(_('Preferences'));
-        this._tsPreferences.connect('activate', Lang.bind(this, this._onPreferences));
-        this.menu.addMenuItem(this._tsPreferences);
 
         // init ui
         this._reflectState();
@@ -120,18 +115,6 @@ const MiniviewIndicator = new Lang.Class({
         this._miniview._clone.scale_y = 0.2;
         this._miniview._clone.x = 100;
         this._miniview._clone.y = 100;
-    },
-
-    _onPreferences: function() {
-        let _appSys = Shell.AppSystem.get_default();
-        let _gsmPrefs = _appSys.lookup_app('gnome-shell-extension-prefs.desktop');
-        if (_gsmPrefs.get_state() === _gsmPrefs.SHELL_APP_STATE_RUNNING) {
-            _gsmPrefs.activate();
-        } else {
-            let info = _gsmPrefs.get_app_info();
-            let timestamp = _display.get_current_time_roundtrip();
-            info.launch_uris([Me.metadata.uuid], global.create_app_launch_context(timestamp, -1));
-        }
     }
 });
 
