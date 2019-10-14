@@ -11,29 +11,11 @@ const _ = Gettext.gettext;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
-const Convenience = Me.imports.convenience;
 
-// compatibility for earlier gnome shell versions
-let _display;
-if (global.display != undefined) {
-    _display = global.display;
-} else {
-    _display = global.screen;
-}
-
-let _initTranslations;
-if (ExtensionUtils.initTranslations != undefined) {
-    _initTranslations = ExtensionUtils.initTranslations;
-} else {
-    _initTranslations = Convenience.initTranslations;
-}
-
-let _getSettings;
-if (ExtensionUtils.getSettings != undefined) {
-    _getSettings = ExtensionUtils.getSettings;
-} else {
-    _getSettings = Convenience.getSettings;
-}
+let _uuid = Me.metadata.uuid;
+let _display = global.display;
+let _initTranslations = ExtensionUtils.initTranslations;
+let _getSettings = ExtensionUtils.getSettings;
 
 let MiniviewIndicator = GObject.registerClass(
 class MiniviewIndicator extends PanelMenu.Button {
@@ -128,7 +110,7 @@ class MiniviewIndicator extends PanelMenu.Button {
         } else {
             let info = _gsmPrefs.get_app_info();
             let timestamp = _display.get_current_time_roundtrip();
-            info.launch_uris([Me.metadata.uuid], global.create_app_launch_context(timestamp, -1));
+            info.launch_uris([_uuid], global.create_app_launch_context(timestamp, -1));
         }
     }
 });
