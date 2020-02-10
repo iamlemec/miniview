@@ -1,5 +1,4 @@
 const { GObject, Gio, Meta, Clutter, St, Shell } = imports.gi;
-const Lang = imports.lang;
 const Signals = imports.signals;
 const Mainloop = imports.mainloop;
 const Main = imports.ui.main;
