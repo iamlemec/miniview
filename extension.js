@@ -25,7 +25,7 @@ class MiniviewIndicator extends PanelMenu.Button {
         // get settings from schema
         this._settings = _getSettings();
         this._showme = this._settings.get_boolean('showme');
-        this._settings.connect('changed', this._settingsChanged.bind(this));
+        this._settingsChangedId = this._settings.connect('changed', this._settingsChanged.bind(this));
         Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, this._onToggled.bind(this));
 
         // create menu ui
@@ -112,6 +112,13 @@ class MiniviewIndicator extends PanelMenu.Button {
             let timestamp = _display.get_current_time_roundtrip();
             info.launch_uris([_uuid], global.create_app_launch_context(timestamp, -1));
         }
+    }
+
+    _onDestroy() {
+        super._onDestroy();
+
+        Main.wm.removeKeybinding('toggle-miniview');
+        this._settings.disconnect(this._settingsChangedId);
     }
 });
 
@@ -609,7 +616,6 @@ function disable() {
     state.size_y = _miniview._clone.scale_y;
     state.opacity = _miniview._clone.user_opacity;
 
-    Main.wm.removeKeybinding('toggle-miniview');
     _indicator.destroy();
     _miniview.destroy();
 }
