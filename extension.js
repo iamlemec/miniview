@@ -377,12 +377,10 @@ class Miniview {
             if (this._stateTimeout != null) {
                 Mainloop.source_remove(this._stateTimeout);
             }
-            this._stateTimeout = Mainloop.timeout_add_seconds(1, Lang.bind(this,
-                function() {
-                    this._state.metaWin = this._metaWin;
-                    this._stateTimeout = null;
-                }
-            ));
+            this._stateTimeout = Mainloop.timeout_add_seconds(1, () => {
+                this._state.metaWin = this._metaWin;
+                this._stateTimeout = null;
+            });
         }
     }
 
@@ -417,14 +415,12 @@ class Miniview {
         if (!win) {
             // Newly-created windows are added to a workspace before
             // the compositor finds out about them...
-            Mainloop.idle_add(Lang.bind(this,
-                function () {
-                    if (this._clone && metaWin.get_compositor_private()) {
-                        this._insertWindow(metaWin);
-                    }
-                    return false;
+            Mainloop.idle_add(() => {
+                if (this._clone && metaWin.get_compositor_private()) {
+                    this._insertWindow(metaWin);
                 }
-            ));
+                return false;
+            });
 
             return;
         }
@@ -479,13 +475,11 @@ class Miniview {
         if (this._lastTimeout != null) {
             Mainloop.source_remove(this._lastTimeout);
         }
-        this._lastTimeout = Mainloop.timeout_add(100, Lang.bind(this,
-            function() {
-                this._lastIdx = null;
-                this._lastActive = null;
-                this._lastTimeout = null;
-            }
-        ));
+        this._lastTimeout = Mainloop.timeout_add(100, () => {
+            this._lastIdx = null;
+            this._lastActive = null;
+            this._lastTimeout = null;
+        });
 
         // remove from list
         this._windowList.splice(index, 1);
