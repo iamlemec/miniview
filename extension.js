@@ -1,5 +1,4 @@
 const { GObject, Gio, Meta, Clutter, St, Shell } = imports.gi;
-const Lang = imports.lang;
 const Signals = imports.signals;
 const Mainloop = imports.mainloop;
 const Main = imports.ui.main;
@@ -25,8 +24,8 @@ class MiniviewIndicator extends PanelMenu.Button {
         // get settings from schema
         this._settings = _getSettings();
         this._showme = this._settings.get_boolean('showme');
-        this._settings.connect('changed', Lang.bind(this, this._settingsChanged));
-        Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, Lang.bind(this, this._onToggled));
+        this._settingsChangedId = this._settings.connect('changed', this._settingsChanged.bind(this));
+        Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, this._onToggled.bind(this));
 
         // create menu ui
         super._init(St.Align.START);
@@ -39,26 +38,26 @@ class MiniviewIndicator extends PanelMenu.Button {
 
         // on/off toggle
         this._tsToggle = new PopupMenu.PopupSwitchMenuItem(_('Enable Miniview'), false, { style_class: 'popup-subtitle-menu-item' });
-        this._tsToggle.connect('toggled', Lang.bind(this, this._onToggled));
+        this._tsToggle.connect('toggled', this._onToggled.bind(this));
         this.menu.addMenuItem(this._tsToggle);
 
         // cycling through windows
         this._tsNext = new PopupMenu.PopupMenuItem(_('Next Window'));
-        this._tsNext.connect('activate', Lang.bind(this, this._onNext));
+        this._tsNext.connect('activate', this._onNext.bind(this));
         this.menu.addMenuItem(this._tsNext);
 
         this._tsPrev = new PopupMenu.PopupMenuItem(_('Previous Window'));
-        this._tsPrev.connect('activate', Lang.bind(this, this._onPrev));
+        this._tsPrev.connect('activate', this._onPrev.bind(this));
         this.menu.addMenuItem(this._tsPrev);
 
         // reset ephemeral parameters (in case miniview got lost :) )
         this._tsResetMiniview = new PopupMenu.PopupMenuItem(_('Reset Miniview'));
-        this._tsResetMiniview.connect('activate', Lang.bind(this, this._onResetMiniview));
+        this._tsResetMiniview.connect('activate', this._onResetMiniview.bind(this));
         this.menu.addMenuItem(this._tsResetMiniview);
 
         // extension preferences
         this._tsPreferences = new PopupMenu.PopupMenuItem(_('Preferences'));
-        this._tsPreferences.connect('activate', Lang.bind(this, this._onPreferences));
+        this._tsPreferences.connect('activate', this._onPreferences.bind(this));
         this.menu.addMenuItem(this._tsPreferences);
 
         // init ui
@@ -113,6 +112,13 @@ class MiniviewIndicator extends PanelMenu.Button {
             info.launch_uris([_uuid], global.create_app_launch_context(timestamp, -1));
         }
     }
+
+    _onDestroy() {
+        super._onDestroy();
+
+        Main.wm.removeKeybinding('toggle-miniview');
+        this._settings.disconnect(this._settingsChangedId);
+    }
 });
 
 let MiniviewClone = GObject.registerClass({
@@ -140,12 +146,12 @@ let MiniviewClone = GObject.registerClass({
 
         this.add_actor(this._windowClone);
 
-        this.connect('button-press-event', Lang.bind(this, this._onButtonPress));
-        this.connect('button-release-event', Lang.bind(this, this._onButtonRelease));
-        this.connect('motion-event', Lang.bind(this, this._onMouseMove));
-        this.connect('scroll-event', Lang.bind(this, this._onScroll));
-        this.connect('enter-event', Lang.bind(this, this._onMouseEnter));
-        this.connect('leave-event', Lang.bind(this, this._onMouseLeave));
+        this.connect('button-press-event', this._onButtonPress.bind(this));
+        this.connect('button-release-event', this._onButtonRelease.bind(this));
+        this.connect('motion-event', this._onMouseMove.bind(this));
+        this.connect('scroll-event', this._onScroll.bind(this));
+        this.connect('enter-event', this._onMouseEnter.bind(this));
+        this.connect('leave-event', this._onMouseLeave.bind(this));
 
         // interface state
         this.inMove = false;
@@ -319,11 +325,11 @@ class Miniview {
         }
 
         this._clone = new MiniviewClone(this);
-        this._clone.connect('scroll-up', Lang.bind(this, this._goWindowUp));
-        this._clone.connect('scroll-down', Lang.bind(this, this._goWindowDown));
+        this._clone.connect('scroll-up', this._goWindowUp.bind(this));
+        this._clone.connect('scroll-down', this._goWindowDown.bind(this));
 
-        this._overviewShowingId = Main.overview.connect('showing',Lang.bind(this, this._overviewEnter));
-        this._overviewHiddenId = Main.overview.connect('hidden', Lang.bind(this, this._overviewLeave));
+        this._overviewShowingId = Main.overview.connect('showing', this._overviewEnter.bind(this));
+        this._overviewHiddenId = Main.overview.connect('hidden', this._overviewLeave.bind(this));
         Main.layoutManager.addChrome(this._clone);
 
         this._winIdx = null;
@@ -335,8 +341,8 @@ class Miniview {
             this._clone.visible = true;
         }
 
-        this._windowEnteredMonitorId = _display.connect('window-entered-monitor', Lang.bind(this, this._windowEnteredMonitor));
-        this._windowLeftMonitorId = _display.connect('window-left-monitor', Lang.bind(this, this._windowLeftMonitor));
+        this._windowEnteredMonitorId = _display.connect('window-entered-monitor', this._windowEnteredMonitor.bind(this));
+        this._windowLeftMonitorId = _display.connect('window-left-monitor', this._windowLeftMonitor.bind(this));
     }
 
     destroy() {
@@ -377,12 +383,10 @@ class Miniview {
             if (this._stateTimeout != null) {
                 Mainloop.source_remove(this._stateTimeout);
             }
-            this._stateTimeout = Mainloop.timeout_add_seconds(1, Lang.bind(this,
-                function() {
-                    this._state.metaWin = this._metaWin;
-                    this._stateTimeout = null;
-                }
-            ));
+            this._stateTimeout = Mainloop.timeout_add_seconds(1, () => {
+                this._state.metaWin = this._metaWin;
+                this._stateTimeout = null;
+            });
         }
     }
 
@@ -417,14 +421,12 @@ class Miniview {
         if (!win) {
             // Newly-created windows are added to a workspace before
             // the compositor finds out about them...
-            Mainloop.idle_add(Lang.bind(this,
-                function () {
-                    if (this._clone && metaWin.get_compositor_private()) {
-                        this._insertWindow(metaWin);
-                    }
-                    return false;
+            Mainloop.idle_add(() => {
+                if (this._clone && metaWin.get_compositor_private()) {
+                    this._insertWindow(metaWin);
                 }
-            ));
+                return false;
+            });
 
             return;
         }
@@ -479,13 +481,11 @@ class Miniview {
         if (this._lastTimeout != null) {
             Mainloop.source_remove(this._lastTimeout);
         }
-        this._lastTimeout = Mainloop.timeout_add(100, Lang.bind(this,
-            function() {
-                this._lastIdx = null;
-                this._lastActive = null;
-                this._lastTimeout = null;
-            }
-        ));
+        this._lastTimeout = Mainloop.timeout_add(100, () => {
+            this._lastIdx = null;
+            this._lastActive = null;
+            this._lastTimeout = null;
+        });
 
         // remove from list
         this._windowList.splice(index, 1);
@@ -615,7 +615,6 @@ function disable() {
     state.size_y = _miniview._clone.scale_y;
     state.opacity = _miniview._clone.user_opacity;
 
-    Main.wm.removeKeybinding('toggle-miniview');
     _indicator.destroy();
     _miniview.destroy();
 }
