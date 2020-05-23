@@ -73,9 +73,19 @@ class MiniviewPrefsWidget extends Gtk.Box {
         col2.add_attribute(cell2, 'accel-key', 3);
         this._treeview.append_column(col2);
 
+        // inidicator toggle
+        this._indicator = new Gtk.CheckButton({ label: 'Show indicator button in panel' });
+        let ind = this._settings.get_boolean('showind');
+        this._indicator.set_active(ind);
+        this._indicator.connect('toggled', (tog) => {
+            let ind = this._settings.get_boolean('showind');
+            this._settings.set_boolean('showind', !ind);
+        });
+
         // layout
         this._frame.add(this._treeview);
         this.add(this._frame);
+        this.add(this._indicator);
 
         // set up keybindings
         this._toggleRow = this._appendHotkey('toggle-miniview', _('Toggle Miniview'));
@@ -87,6 +97,9 @@ class MiniviewPrefsWidget extends Gtk.Box {
                 let [key, mods] = Gtk.accelerator_parse(accel);
                 let row = this._toggleRow;
                 this._model.set(row, [ 2, 3 ], [ mods, key ]);
+            } else if (action == 'showind') {
+                let ind = this._settings.get_boolean('showind');
+                this._indicator.set_active(ind);
             }
         });
     }

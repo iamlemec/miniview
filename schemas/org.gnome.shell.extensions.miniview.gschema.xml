@@ -6,10 +6,15 @@
       <summary>Toggle Miniview</summary>
       <description>Toggle the Miniview Gnome shell extension.</description>
     </key>
-    <key type="b" name="showme">
+    <key name="showind" type="b">
       <default>true</default>
-      <summary>Toggle On/Off</summary>
-      <description>Turn Miniview on or off.</description>
+      <summary>Show panel menu</summary>
+      <description>Show the Miniview panel menu.</description>
+    </key>
+    <key name="showme" type="b">
+      <default>true</default>
+      <summary>Show Miniview</summary>
+      <description>Show Miniview window.</description>
     </key>
   </schema>
 </schemalist>
