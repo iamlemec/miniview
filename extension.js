@@ -163,6 +163,12 @@ let MiniviewClone = GObject.registerClass({
         let button = event.get_button();
         let state = event.get_state();
         let ctrl = (state & Clutter.ModifierType.CONTROL_MASK) != 0;
+        let shift = (state & Clutter.ModifierType.SHIFT_MASK) != 0;
+
+        // alternative scroll
+        if (shift) {
+            return true;
+        }
 
         if ((button == 1) && (!ctrl)) {
             this.inMove = true;
@@ -185,6 +191,18 @@ let MiniviewClone = GObject.registerClass({
 
     _onButtonRelease(actor, event) {
         let button = event.get_button();
+        let state = event.get_state();
+        let shift = (state & Clutter.ModifierType.SHIFT_MASK) != 0;
+
+        // alternative scroll
+        if (shift) {
+            if (button == 1) {
+                this.emit('scroll-up');
+            } else if (button == 3) {
+                this.emit('scroll-down');
+            }
+            return true;
+        }
 
         if (button == 1) {
             if (this.inMove) {
