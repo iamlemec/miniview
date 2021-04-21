@@ -1,14 +1,22 @@
 #!/usr/bin/gjs
 
-imports.gi.versions.Gtk = "3.0";
-const { GnomeDesktop, GObject, Gtk, Gio } = imports.gi;
+imports.gi.versions.Gtk = "4.0";
+const { GObject, Gtk, Gio } = imports.gi;
 const GioSSS = Gio.SettingsSchemaSource;
 
 function append_hotkey(model, settings, name, pretty_name) {
     let accel = settings.get_strv(name)[0];
-    let [key, mods] = Gtk.accelerator_parse(accel);
-    let row = model.insert(10);
+    let [ok, key, mods] = Gtk.accelerator_parse(accel);
+    let row = model.append();
     model.set(row, [0, 1, 2, 3], [name, pretty_name, mods, key ]);
+}
+
+function set_keybinding(model, settings, colname, key, mods) {
+    let value = Gtk.accelerator_name(key, mods);
+    let [success, iter] = model.get_iter_from_string(colname);
+    let name = model.get_value(iter, 0);
+    model.set(iter, [ 2, 3 ], [ mods, key ]);
+    settings.set_strv(name, [value]);
 }
 
 function get_settings() {
@@ -19,7 +27,7 @@ function get_settings() {
 }
 
 // init
-Gtk.init(null);
+Gtk.init();
 
 // settings
 let settings = get_settings();
@@ -34,17 +42,20 @@ let frame = new Gtk.Frame({
 // tree model
 let model = new Gtk.ListStore();
 model.set_column_types([
-    GObject.TYPE_STRING,
-    GObject.TYPE_STRING,
-    GObject.TYPE_INT,
-    GObject.TYPE_INT
+    GObject.TYPE_STRING, // name
+    GObject.TYPE_STRING, // pretty_name
+    GObject.TYPE_INT, // mods
+    GObject.TYPE_INT // key
 ]);
 
 let treeview = new Gtk.TreeView({
     vexpand: false,
     hexpand: true,
-    margin: 10,
-    model: model
+    model: model,
+    margin_top: 10,
+    margin_bottom: 10,
+    margin_start: 10,
+    margin_end: 10
 });
 
 // keybinding name
@@ -63,21 +74,13 @@ let cell2 = new Gtk.CellRendererAccel({
     editable: true,
     accel_mode: Gtk.CellRendererAccelMode.GTK
 });
-cell2.connect('accel-edited', (rend, colname, key, mods) => {
-    let value = Gtk.accelerator_name(key, mods);
-    let [success, iter] = model.get_iter_from_string(colname);
-    let name = model.get_value(iter, 0);
-    model.set(iter, [ 2, 3 ], [ mods, key ]);
-    settings.set_strv(name, [value]);
-    print('Accel edited for ' + name + ': ' + value);
+cell2.connect('accel-edited', (rend, colname, key, mods, code) => {
+    set_keybinding(model, settings, colname, key, mods);
+    print('Accel edited for ' + colname + ': ' + mods);
 });
 cell2.connect('accel-cleared', (rend, colname) => {
-    let value = Gtk.accelerator_name(0, 0);
-    let [success, iter] = model.get_iter_from_string(colname);
-    let name = model.get_value(iter, 0);
-    model.set(iter, [ 2, 3 ], [ 0, 0 ]);
-    settings.set_strv(name, [value]);
-    print('Accel cleared for ' + name + ': ' + value);
+    set_keybinding(model, settings, colname, 0, 0);
+    print('Accel cleared for ' + colname);
 });
 
 let col2 = new Gtk.TreeViewColumn({
@@ -93,14 +96,29 @@ treeview.append_column(col2);
 append_hotkey(model, settings, 'toggle-miniview', 'Toggle Miniview');
 
 // outer box
-let box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 10, margin: 50 });
-frame.add(treeview);
-box.add(frame);
+let box = new Gtk.Box({
+    orientation: Gtk.Orientation.VERTICAL,
+    spacing: 10
+});
+frame.set_child(treeview);
+box.append(frame);
 
 // window
-const win = new Gtk.Window({ defaultHeight: 400, defaultWidth: 500 });
+let win = new Gtk.ApplicationWindow({
+    defaultHeight: 400,
+    defaultWidth: 500
+});
 win.connect('destroy', () => { Gtk.main_quit(); });
-win.add(box);
-win.show_all();
+win.set_child(box);
 
-Gtk.main();
+// application
+let app = new Gtk.Application({
+    application_id: 'org.gtk.Example'
+});
+app.connect('activate', () => {
+    app.add_window(win);
+    win.present();
+});
+
+// run
+app.run([]);
