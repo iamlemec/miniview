@@ -334,6 +334,7 @@ class Miniview {
         // track windows as they move across monitors or are created/destroyed
         this._windowEnteredMonitorId = _display.connect('window-entered-monitor', this._windowEnteredMonitor.bind(this));
         this._windowLeftMonitorId = _display.connect('window-left-monitor', this._windowLeftMonitor.bind(this));
+        this._windowFocusNotifyId = _display.connect('notify::focus-window', this._windowFocusMonitor.bind(this))
 
         // for tracking across locking/suspending
         this._state = state;
@@ -367,6 +368,7 @@ class Miniview {
 
         _display.disconnect(this._windowEnteredMonitorId);
         _display.disconnect(this._windowLeftMonitorId);
+        _display.disconnect(this._windowFocusNotifyId);
 
         if (this._stateTimeout != null) {
             Mainloop.source_remove(this._stateTimeout);
@@ -483,6 +485,17 @@ class Miniview {
             // let index = this.lookupIndex(metaWin);
             // global.log(`miniview: _windowLeftMonitor   : index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
             this._removeWindow(metaWin);
+        }
+    }
+
+    _windowFocusMonitor(display) {
+        let activeWindow = display.get_focus_window();
+        //global.log(`miniview: _windowFocusMonitor   : display=${display} window=${activeWindow.get_title()}`);
+
+        if (this.lookupIndex(activeWindow) == this._winIdx) {
+            this._clone.visible = false;
+        } else {
+            this._realizeMiniview();
         }
     }
 
