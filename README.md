@@ -32,3 +32,4 @@ Thanks to these awesome folks!
 - [@antielektron](https://github.com/antielektron)
 - [@jonnius](https://github.com/jonnius)
 - [@amivaleo](https://github.com/amivaleo)
+- [@dontfreakout](https://github.com/dontfreakout)
