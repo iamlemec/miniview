@@ -95,13 +95,6 @@ class MiniviewIndicator extends PanelMenu.Button {
             info.launch_uris([_uuid], global.create_app_launch_context(timestamp, -1));
         }
     }
-
-    _onDestroy() {
-        super._onDestroy();
-
-        Main.wm.removeKeybinding('toggle-miniview');
-        this._settings.disconnect(this._settingsChangedId);
-    }
 });
 
 let MiniviewClone = GObject.registerClass({
@@ -319,13 +312,6 @@ class Miniview {
         this._clone.connect('scroll-up', this._goWindowUp.bind(this));
         this._clone.connect('scroll-down', this._goWindowDown.bind(this));
 
-        // get settings from schema
-        this._settings = _getSettings();
-        this._showme = this._settings.get_boolean('showme');
-        this._showind = this._settings.get_boolean('showind');
-        this._settingsChangedId = this._settings.connect('changed', this._settingsChanged.bind(this));
-        Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, this._toggleMiniview.bind(this));
-
         // add to top level chrome but hide for overview
         this._overviewShowingId = Main.overview.connect('showing', this._overviewEnter.bind(this));
         this._overviewHiddenId = Main.overview.connect('hidden', this._overviewLeave.bind(this));
@@ -334,8 +320,7 @@ class Miniview {
         // track windows as they move across monitors or are created/destroyed
         this._windowEnteredMonitorId = _display.connect('window-entered-monitor', this._windowEnteredMonitor.bind(this));
         this._windowLeftMonitorId = _display.connect('window-left-monitor', this._windowLeftMonitor.bind(this));
-
-        this._activeWindowTracking();
+        this._windowFocusNotifyId = _display.connect('notify::focus-window', this._windowFocusMonitor.bind(this));
 
         // for tracking across locking/suspending
         this._state = state;
@@ -359,7 +344,15 @@ class Miniview {
             }
         }
 
-        // harmonize ui
+        // get current settings
+        this._settings = _getSettings();
+        this._settingsChangedId = this._settings.connect('changed', this._settingsChanged.bind(this));
+        this._settingsChanged();
+
+        // assign global toggle
+        Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, this._toggleMiniview.bind(this));
+
+        // implement settings
         this._reflectState();
     }
 
@@ -369,10 +362,10 @@ class Miniview {
 
         _display.disconnect(this._windowEnteredMonitorId);
         _display.disconnect(this._windowLeftMonitorId);
+        _display.disconnect(this._windowFocusNotifyId);
 
-        if(this._windowFocusNotifyId) {
-            _display.disconnect(this._windowFocusNotifyId);
-        }
+        this._settings.disconnect(this._settingsChangedId);
+        Main.wm.removeKeybinding('toggle-miniview');
 
         if (this._stateTimeout != null) {
             Mainloop.source_remove(this._stateTimeout);
@@ -413,15 +406,6 @@ class Miniview {
                 this._state.metaWin = this._metaWin;
                 this._stateTimeout = null;
             });
-        }
-    }
-
-    _activeWindowTracking() {
-        if(this._settings.get_boolean('hide-on-focus')) {
-            // track active window
-            this._windowFocusNotifyId = _display.connect('notify::focus-window', this._windowFocusMonitor.bind(this))
-        } else if (this._windowFocusNotifyId) {
-            _display.disconnect(this._windowFocusNotifyId);
         }
     }
 
@@ -502,14 +486,7 @@ class Miniview {
     }
 
     _windowFocusMonitor(display) {
-        let activeWindow = display.get_focus_window();
-        //global.log(`miniview: _windowFocusMonitor   : display=${display} window=${activeWindow.get_title()}`);
-
-        if (activeWindow == this._metaWin) {
-            this._clone.visible = false;
-        } else {
-            this._realizeMiniview();
-        }
+        this._realizeMiniview();
     }
 
     _removeWindow(metaWin) {
@@ -566,7 +543,17 @@ class Miniview {
                     idx = 0;
                 }
                 this.setIndex(idx);
-                this._clone.visible = true;
+
+                if (this._hidefoc) {
+                    let activeWindow = _display.get_focus_window();
+                    if (activeWindow == this._metaWin) {
+                        this._clone.visible = false;
+                    } else {
+                        this._clone.visible = true;
+                    }
+                } else {
+                    this._clone.visible = true;
+                }
             }
         } else {
             this._clone.visible = false;
@@ -596,7 +583,7 @@ class Miniview {
     _settingsChanged() {
         this._showme = this._settings.get_boolean('showme');
         this._showind = this._settings.get_boolean('showind');
-        this._activeWindowTracking();
+        this._hidefoc = this._settings.get_boolean('hide-on-focus');
         this._reflectState();
     }
 }
