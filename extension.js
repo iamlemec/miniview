@@ -335,6 +335,8 @@ class Miniview {
         this._windowEnteredMonitorId = _display.connect('window-entered-monitor', this._windowEnteredMonitor.bind(this));
         this._windowLeftMonitorId = _display.connect('window-left-monitor', this._windowLeftMonitor.bind(this));
 
+        this._activeWindowTracking();
+
         // for tracking across locking/suspending
         this._state = state;
         this._stateTimeout = null;
@@ -367,6 +369,10 @@ class Miniview {
 
         _display.disconnect(this._windowEnteredMonitorId);
         _display.disconnect(this._windowLeftMonitorId);
+
+        if(this._windowFocusNotifyId) {
+            _display.disconnect(this._windowFocusNotifyId);
+        }
 
         if (this._stateTimeout != null) {
             Mainloop.source_remove(this._stateTimeout);
@@ -407,6 +413,15 @@ class Miniview {
                 this._state.metaWin = this._metaWin;
                 this._stateTimeout = null;
             });
+        }
+    }
+
+    _activeWindowTracking() {
+        if(this._settings.get_boolean('hide-on-focus')) {
+            // track active window
+            this._windowFocusNotifyId = _display.connect('notify::focus-window', this._windowFocusMonitor.bind(this))
+        } else if (this._windowFocusNotifyId) {
+            _display.disconnect(this._windowFocusNotifyId);
         }
     }
 
@@ -483,6 +498,17 @@ class Miniview {
             // let index = this.lookupIndex(metaWin);
             // global.log(`miniview: _windowLeftMonitor   : index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
             this._removeWindow(metaWin);
+        }
+    }
+
+    _windowFocusMonitor(display) {
+        let activeWindow = display.get_focus_window();
+        //global.log(`miniview: _windowFocusMonitor   : display=${display} window=${activeWindow.get_title()}`);
+
+        if (activeWindow == this._metaWin) {
+            this._clone.visible = false;
+        } else {
+            this._realizeMiniview();
         }
     }
 
@@ -570,6 +596,7 @@ class Miniview {
     _settingsChanged() {
         this._showme = this._settings.get_boolean('showme');
         this._showind = this._settings.get_boolean('showind');
+        this._activeWindowTracking();
         this._reflectState();
     }
 }
