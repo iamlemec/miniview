@@ -471,8 +471,7 @@ class Miniview {
 
         // got our first window
         if (this._showme && (this._windowList.length == 1)) {
-            this.setIndex(0);
-            this._clone.visible = true;
+            this._realizeMiniview();
         }
     }
 

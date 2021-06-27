@@ -17,7 +17,7 @@
       <description>Show Miniview window.</description>
     </key>
     <key name="hide-on-focus" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Hide on previewed window</summary>
       <description>When the previewed window has focus, miniview is hidden</description>
     </key>
