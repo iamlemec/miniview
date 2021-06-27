@@ -442,7 +442,11 @@ class Miniview {
             // Newly-created windows are added to a workspace before
             // the compositor finds out about them...
             Mainloop.idle_add(() => {
-                if (this._clone && metaWin.get_compositor_private()) {
+                if (
+                    this._clone &&
+                    metaWin.get_compositor_private() &&
+                    (metaWin.get_wm_class() != 'gjs') // ubuntu desktop
+                ) {
                     this._insertWindow(metaWin);
                 }
                 return false;
