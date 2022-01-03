@@ -1,5 +1,6 @@
 RELEASE_ZIP = miniview.zip
-RELEASE_FILES = metadata.json extension.js prefs.js locale schemas README.md LICENSE
+MO_FILES = $(shell find locale -name \*.mo)
+RELEASE_FILES = metadata.json extension.js prefs.js $(MO_FILES) schemas README.md LICENSE
 
 all: release
 
