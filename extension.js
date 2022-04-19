@@ -370,6 +370,9 @@ class Miniview {
         if (this._stateTimeout != null) {
             Mainloop.source_remove(this._stateTimeout);
         }
+        if (this._lastTimeout != null) {
+            Mainloop.source_remove(this._lastTimeout);
+        }
 
         if (this._indicator) {
             this._indicator.destroy();
@@ -593,8 +596,7 @@ function init(meta) {
 }
 
 // top level ui elements
-let _indicator;
-let _miniview;
+let _miniview = null;
 
 // session state - ephemeral parameters
 let state = {
@@ -646,7 +648,8 @@ function disable() {
     state.size_y = _miniview._clone.scale_y;
     state.opacity = _miniview._clone.user_opacity;
 
-    _miniview.destroy();
-    _miniview = null;
-    _indicator = null;
+    if (_miniview) {
+        _miniview.destroy();
+        _miniview = null;
+    }
 }
