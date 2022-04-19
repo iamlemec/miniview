@@ -647,4 +647,6 @@ function disable() {
     state.opacity = _miniview._clone.user_opacity;
 
     _miniview.destroy();
+    _miniview = null;
+    _indicator = null;
 }
