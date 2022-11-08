@@ -5,7 +5,7 @@
  "gettext-domain": "gnome-shell-extensions",
  "name": "Miniview",
  "description": "Show window previews",
- "shell-version": [ "40" , "41", "42" ],
+ "shell-version": [ "40" , "41", "42", "43" ],
  "original-authors": [ "thesecretaryofwar@gmail.com" ],
  "url": "https://github.com/iamlemec/miniview"
 }
