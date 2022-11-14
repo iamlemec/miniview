@@ -53,9 +53,9 @@ class MiniviewIndicator extends PanelMenu.Button {
         this._tsPreferences = new PopupMenu.PopupMenuItem(_('Preferences'));
         this._tsPreferences.connect('activate', this._onPreferences.bind(this));
         this.menu.addMenuItem(this._tsPreferences);
-        
-        this._double_click = false;
-        this._prev_click_time = 0;
+
+        // for double click detection
+        this._prev_click_time = null;
     }
 
     _onToggled() {
@@ -186,16 +186,15 @@ let MiniviewClone = GObject.registerClass({
     }
 
     _onButtonRelease(actor, event) {
-        if ((event.get_time() - this._prev_click_time) < Clutter.Settings.get_default().double_click_time) {
-            this._double_click = true;
-        } else {
-            this._double_click = false;
-        }
-        this._prev_click_time = event.get_time();
-    
         let button = event.get_button();
         let state = event.get_state();
         let shift = (state & Clutter.ModifierType.SHIFT_MASK) != 0;
+        let time = event.get_time();
+
+        // detect double click
+        let dbtime = Clutter.Settings.get_default().double_click_time;
+        let dbclick = (this._prev_click_time != null) && ((time - this._prev_click_time) < dbtime);
+        this._prev_click_time = time;
 
         // alternative scroll
         if (shift) {
@@ -216,7 +215,7 @@ let MiniviewClone = GObject.registerClass({
                 this.inResizeCtrl = false;
             }
 
-            if (this._double_click) {
+            if (dbclick) {
                 Main.activateWindow(this._metaWin);
             }
         } else if (button == 3) {

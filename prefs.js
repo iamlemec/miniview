@@ -1,147 +1,239 @@
-const { GObject, Gtk } = imports.gi;
+imports.gi.versions.Gdk = "4.0";
+imports.gi.versions.Gtk = "4.0";
+const { GObject, Gio, Gdk, Gtk, Adw } = imports.gi;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 
 const Gettext = imports.gettext.domain('miniview');
 const _ = Gettext.gettext;
 
+const modMap = new Map([
+    [Gdk.KEY_Control_L, 'control'],
+    [Gdk.KEY_Control_R, 'control'],
+    [Gdk.KEY_Alt_L, 'alt'],
+    [Gdk.KEY_Alt_R, 'alt'],
+    [Gdk.KEY_Shift_L, 'shift'],
+    [Gdk.KEY_Shift_R, 'shift'],
+]);
+
+const modNames = {
+    control: 'Ctrl',
+    alt: 'Alt',
+    shift: 'Shift',
+};
+
+const state0 = Object.fromEntries(
+    Object.entries(modNames).map(([k, v]) => [k, false])
+);
+
+let KeyChooserWidget = GObject.registerClass(
+class KeyChooserWidget extends Gtk.Stack {
+    constructor(window, row, settings, key) {
+        super();
+        this._settings = settings;
+        this._key = key;
+
+        let value = this._fetchValue();
+        this.label = new Gtk.ShortcutLabel({accelerator: value});
+        this.add_child(this.label);
+
+        let keys = new Gtk.EventControllerKey();
+        keys.connect('key-pressed', (self, keyval, keycode, state) => this._keyPressed(keyval));
+        keys.connect('key-released', (self, keyval, keycode, state) => this._keyReleased(keyval));
+        window.add_controller(keys);
+
+        let clicks = new Gtk.GestureClick();
+        clicks.connect('released', (self, n, x, y) => this._clickReleased());
+        row.add_controller(clicks);
+
+        this._choosing = false;
+    }
+
+    _resetState() {
+        this.state = {...state0};
+    }
+
+    _fetchValue() {
+        let [value, ..._] = this._settings.get_strv(this._key);
+        return value;
+    }
+
+    _updateValue() {
+        let value = this._fetchValue();
+        this._disableChoosing();
+        this.label.set_accelerator(value);
+    }
+
+    _modString() {
+        return Object.entries(this.state)
+                     .filter(([k, v]) => v)
+                     .map(([k, v]) => `<${modNames[k]}>`)
+                     .join('');
+    }
+
+    _enableChoosing() {
+        this._choosing = true;
+        this.label.add_css_class('choosing');
+        this._resetState();
+    }
+
+    _disableChoosing(accel) {
+        this._choosing = false;
+        this.label.remove_css_class('choosing');
+        if (accel != null) {
+            this._settings.set_strv(this._key, [accel]);
+        }
+    }
+
+    _chooseKeyPressed(keyval) {
+        if (modMap.has(keyval)) {
+            let mod = modMap.get(keyval);
+            this.state[mod] = true;
+        } else {
+            let mod = this._modString();
+            let key = Gdk.keyval_name(keyval);
+            let acc = mod + key;
+            this.label.set_accelerator(acc);
+            this._disableChoosing(acc);
+        }
+    }
+
+    _chooseKeyReleased(keyval) {
+        if (modMap.has(keyval)) {
+            let mod = modMap.get(keyval);
+            this.state[mod] = false;
+        }
+    }
+
+    _keyPressed(keyval) {
+        if (this._choosing) {
+            if (keyval == Gdk.KEY_Escape) {
+                this._disableChoosing();
+            } else {
+                this._chooseKeyPressed(keyval);
+            }
+            return true;
+        }
+    }
+
+    _keyReleased(keyval) {
+        if (this._choosing) {
+            this._chooseKeyReleased(keyval);
+            return true;
+        }
+    }
+
+    _clickReleased() {
+        if (this._choosing) {
+            this._disableChoosing();
+        } else {
+            this._enableChoosing();
+        }
+        return true;
+    }
+});
+
+const css = `
+shortcut {
+    padding: 5px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    border: 1px solid rgba(0,0,0,0);
+}
+
+shortcut.choosing {
+    border: 1px solid @destructive_color;
+    border-radius: 5px;
+}
+`.trim();
+
 let MiniviewPrefsWidget = GObject.registerClass(
-class MiniviewPrefsWidget extends Gtk.Box {
-    _init() {
-        super._init({
-            orientation: Gtk.Orientation.VERTICAL,
-            spacing: 10,
-            margin_top: 50,
-            margin_bottom: 50,
-            margin_start: 50,
-            margin_end: 50
+class MiniviewPrefsWidget extends Adw.PreferencesPage {
+    constructor() {
+        super({
+            name: 'miniview_preferences',
+            title: 'Miniview Preferences',
         });
 
         // settings
         this._settings = ExtensionUtils.getSettings();
 
-        // frame
-        this._frame = new Gtk.Frame({
-            vexpand: false,
-            hexpand: true,
-            label: _('Configure Keyboard Shortcuts'),
-        });
+        // panel indicator
+        let [row_ind, switch_ind] = this._makeSwitch(
+            'showind',
+            'Show indicator button in panel',
+            'Exposes a menu in the panel with navigation and toggle options',
+        );
 
-        // tree model
-        this._model = new Gtk.ListStore();
-        this._model.set_column_types([
-            GObject.TYPE_STRING,
-            GObject.TYPE_STRING,
-            GObject.TYPE_INT,
-            GObject.TYPE_INT
-        ]);
+        // hide on focus
+        let [row_hof, switch_hof] = this._makeSwitch(
+            'hide-on-focus',
+            'Hide Miniview when target window is focused',
+            'Avoids showing a preview of the window you\'re currently looking at',
+        );
 
-        this._treeview = new Gtk.TreeView({
-            vexpand: false,
-            hexpand: true,
-            model: this._model,
-            margin_top: 10,
-            margin_bottom: 10,
-            margin_start: 10,
-            margin_end: 10
-        });
+        // show-hide key chooser
+        let [row_key, choose_key] = this._makeKeychoose(
+            'toggle-miniview',
+            'Keybinding for toggling Miniview display',
+            'Click to select new keyboard shortcut'
+        );
 
-        // keybinding name
-        let cell1 = new Gtk.CellRendererText();
-        let col1 = new Gtk.TreeViewColumn({
-            title: _('Action'),
-            expand: true
-        });
+        // group together
+        let group = new Adw.PreferencesGroup();
+        group.add(row_ind);
+        group.add(row_hof);
+        group.add(row_key);
+        this.add(group);
 
-        col1.pack_start(cell1, true);
-        col1.add_attribute(cell1, 'text', 1);
-        this._treeview.append_column(col1);
-
-        // keybinding information
-        let cell2 = new Gtk.CellRendererAccel({
-            editable: true,
-            accel_mode: Gtk.CellRendererAccelMode.GTK
-        });
-        cell2.connect('accel-edited', (rend, colname, key, mods) => {
-            this._setKeybinding(colname, key, mods);
-        });
-        cell2.connect('accel-cleared', (rend, colname) => {
-            this._setKeybinding(colname, 0, 0);
-        });
-
-        let col2 = new Gtk.TreeViewColumn({
-            title: _('Accel')
-        });
-
-        col2.pack_end(cell2, false);
-        col2.add_attribute(cell2, 'accel-mods', 2);
-        col2.add_attribute(cell2, 'accel-key', 3);
-        this._treeview.append_column(col2);
-
-        // indicator toggle
-        this._indicator = new Gtk.CheckButton({ label: 'Show indicator button in panel' });
-        let ind = this._settings.get_boolean('showind');
-        this._indicator.set_active(ind);
-        this._indicator.connect('toggled', (tog) => {
-            let ind = this._settings.get_boolean('showind');
-            this._settings.set_boolean('showind', !ind);
-        });
-
-        // hide-on-focused toggle
-        this._hidefoc = new Gtk.CheckButton({ label: 'Hide Miniview when target window is focused' });
-        let foc = this._settings.get_boolean('hide-on-focus');
-        this._hidefoc.set_active(foc);
-        this._hidefoc.connect('toggled', (tog) => {
-            let foc = this._settings.get_boolean('hide-on-focus');
-            this._settings.set_boolean('hide-on-focus', !foc);
-        });
-
-        // layout
-        this._frame.set_child(this._treeview);
-        this.append(this._frame);
-        this.append(this._indicator);
-        this.append(this._hidefoc);
-
-        // set up keybindings
-        this._toggleRow = this._appendHotkey('toggle-miniview', _('Toggle Miniview'));
+        // add style
+        let prov = new Gtk.CssProvider();
+        prov.load_from_data(css);
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(), prov, Gtk.StyleProvider.PRIORITY_USER
+        );
 
         // update when settings externally set
         this._settings.connect('changed', (setobj, action) => {
             if (action == 'toggle-miniview') {
-                let accel = this._settings.get_string(action);
-                let [ok, key, mods] = Gtk.accelerator_parse(accel);
-                let row = this._toggleRow;
-                this._model.set(row, [ 2, 3 ], [ mods, key ]);
+                choose_key._updateValue();
             } else if (action == 'showind') {
                 let ind = this._settings.get_boolean('showind');
-                this._indicator.set_active(ind);
+                switch_ind.set_active(ind);
+            } else if (action == 'hide-of-focus') {
+                let hof = this._settings.get_boolean('hide-on-focus');
+                switch_hof.set_active(hof);
             }
         });
     }
 
-    _appendHotkey(name, pretty_name) {
-        let accel = this._settings.get_strv(name)[0];
-        let [ok, key, mods] = Gtk.accelerator_parse(accel);
-        let row = this._model.append();
-        this._model.set(row, [0, 1, 2, 3], [name, pretty_name, mods, key ]);
-        return row;
+    _makeSwitch(key, title, subtitle) {
+        let value = this._settings.get_boolean(key);
+        let row = new Adw.ActionRow({title, subtitle});
+        let toggle = new Gtk.Switch({active: value, valign: Gtk.Align.CENTER});
+    
+        row.add_suffix(toggle);
+        row.activatable_widget = toggle;
+        row.toggle = toggle;
+    
+        this._settings.bind(key, toggle, 'active', Gio.SettingsBindFlags.DEFAULT);
+    
+        return [row, toggle];
     }
 
-    _setKeybinding(colname, key, mods) {
-        let value = Gtk.accelerator_name(key, mods);
-        let [success, iter] = this._model.get_iter_from_string(colname);
-        let name = this._model.get_value(iter, 0);
-        this._model.set(iter, [ 2, 3 ], [ mods, key ]);
-        this._settings.set_strv(name, [value]);
+    _makeKeychoose(key, title, subtitle) {
+        let row = new Adw.ActionRow({title, subtitle, activatable: false});
+        let keychoose = new KeyChooserWidget(this, row, this._settings, key);
+        row.add_suffix(keychoose);
+        return [row, keychoose];
     }
-
+    
 });
 
-function init() {
+function fillPreferencesWindow(window) {
+    let widget = new MiniviewPrefsWidget();
+    window.add(widget);
 }
 
-function buildPrefsWidget() {
-    let widget = new MiniviewPrefsWidget();
-    widget.show();
-    return widget;
+function init() {
 }
