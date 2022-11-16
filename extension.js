@@ -339,6 +339,9 @@ class Miniview {
         this._lastIdx = null;
         this._lastTimeout = null;
 
+        // we use this when inserting windows
+        this._insertTimeout = null;
+
         // start out with null window info
         this._winIdx = null;
         this._metaWin = null;
@@ -347,7 +350,7 @@ class Miniview {
         this._populateWindows();
 
         // this is a hack so we eventually purge the desktop window in ubuntu
-        Mainloop.timeout_add_seconds(10, this._populateWindows.bind(this));
+        this._populateTimeout = Mainloop.timeout_add_seconds(10, this._populateWindows.bind(this));
 
         // get current settings
         this._settings = _getSettings();
@@ -374,9 +377,19 @@ class Miniview {
 
         if (this._stateTimeout != null) {
             Mainloop.source_remove(this._stateTimeout);
+            this._stateTimeout = null;
         }
         if (this._lastTimeout != null) {
             Mainloop.source_remove(this._lastTimeout);
+            this._lastTimeout = null;
+        }
+        if (this._insertTimeout != null) {
+            Mainloop.source_remove(this._insertTimeout);
+            this._insertTimeout = null;
+        }
+        if (this._populateTimeout != null) {
+            Mainloop.source_remove(this._populateTimeout);
+            this._populateTimeout = null;
         }
 
         if (this._indicator) {
@@ -468,7 +481,7 @@ class Miniview {
         if (!win) {
             // Newly-created windows are added to a workspace before
             // the compositor finds out about them...
-            Mainloop.idle_add(() => {
+            this._insertTimeout = Mainloop.idle_add(() => {
                 if (this._clone && metaWin.get_compositor_private()) {
                     this._insertWindow(metaWin);
                 }
