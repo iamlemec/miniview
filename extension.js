@@ -345,7 +345,9 @@ class Miniview {
 
         // assemble window list
         this._populateWindows();
-        Mainloop.timeout_add_seconds(5, this._populateWindows.bind(this));
+
+        // this is a hack so we eventually purge the desktop window in ubuntu
+        Mainloop.timeout_add_seconds(10, this._populateWindows.bind(this));
 
         // get current settings
         this._settings = _getSettings();
