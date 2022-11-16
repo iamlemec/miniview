@@ -344,14 +344,8 @@ class Miniview {
         this._metaWin = null;
 
         // assemble window list
-        let baseWindowList = global.get_window_actors();
-        this._windowList = [];
-        for (let i = 0; i < baseWindowList.length; i++) {
-            let metaWin = baseWindowList[i].get_meta_window();
-            if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
-                this._windowList.push(metaWin);
-            }
-        }
+        this._populateWindows();
+        Mainloop.timeout_add_seconds(5, this._populateWindows.bind(this));
 
         // get current settings
         this._settings = _getSettings();
@@ -418,6 +412,26 @@ class Miniview {
                 this._state.metaWin = this._metaWin;
                 this._stateTimeout = null;
             });
+        }
+    }
+
+    _populateWindows() {
+        this._windowList = [];
+        let baseWindowList = global.get_window_actors();
+        for (let i = 0; i < baseWindowList.length; i++) {
+            let metaWin = baseWindowList[i].get_meta_window();
+            if (metaWin.get_window_type() == Meta.WindowType.NORMAL) {
+                this._windowList.push(metaWin);
+            }
+        }
+
+        // not our first rodeo
+        if (this._metaWin != null) {
+            let idx = this.lookupIndex(this._metaWin);
+            if (this._winIdx != idx) {
+                this.setIndex(idx);
+            }
+            this._realizeMiniview();
         }
     }
 
@@ -565,6 +579,8 @@ class Miniview {
                 } else {
                     this._clone.visible = true;
                 }
+            } else {
+                this._clone.visible = false;
             }
         } else {
             this._clone.visible = false;
