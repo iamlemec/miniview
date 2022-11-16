@@ -22,7 +22,7 @@ class MiniviewIndicator extends PanelMenu.Button {
         this._miniview = miniview;
 
         // create menu ui
-        super._init(St.Align.START);
+        super._init(0.5, 'Miniview');
         let box = new St.BoxLayout();
         let icon = new St.Icon({ icon_name: 'emblem-photos-symbolic', style_class: 'system-status-icon emotes-icon'});
 
