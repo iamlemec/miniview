@@ -329,7 +329,6 @@ class Miniview {
         // track windows as they move across monitors or are created/destroyed
         this._windowEnteredMonitorId = _display.connect('window-entered-monitor', this._windowEnteredMonitor.bind(this));
         this._windowLeftMonitorId = _display.connect('window-left-monitor', this._windowLeftMonitor.bind(this));
-        this._windowFocusNotifyId = _display.connect('notify::focus-window', this._windowFocusMonitor.bind(this));
 
         // for tracking across locking/suspending
         this._state = state;
@@ -370,7 +369,6 @@ class Miniview {
 
         _display.disconnect(this._windowEnteredMonitorId);
         _display.disconnect(this._windowLeftMonitorId);
-        _display.disconnect(this._windowFocusNotifyId);
 
         this._settings.disconnect(this._settingsChangedId);
         Main.wm.removeKeybinding('toggle-miniview');
@@ -523,10 +521,6 @@ class Miniview {
             // global.log(`miniview: _windowLeftMonitor   : index=${index}, current=${this._winIdx}, total=${this._windowList.length}, title=${title}`);
             this._removeWindow(metaWin);
         }
-    }
-
-    _windowFocusMonitor(display) {
-        this._realizeMiniview();
     }
 
     _removeWindow(metaWin) {
