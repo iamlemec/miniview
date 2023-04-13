@@ -188,7 +188,7 @@ class MiniviewPrefsWidget extends Adw.PreferencesPage {
 
         // add style
         let prov = new Gtk.CssProvider();
-        prov.load_from_data(css);
+        prov.load_from_data(css, -1);
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(), prov, Gtk.StyleProvider.PRIORITY_USER
         );
