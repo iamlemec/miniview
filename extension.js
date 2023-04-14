@@ -321,14 +321,13 @@ class Miniview {
         this._clone.connect('scroll-up', this._goWindowUp.bind(this));
         this._clone.connect('scroll-down', this._goWindowDown.bind(this));
 
-        // add to top level chrome but hide for overview
-        this._overviewShowingId = Main.overview.connect('showing', this._overviewEnter.bind(this));
-        this._overviewHiddenId = Main.overview.connect('hidden', this._overviewLeave.bind(this));
+        // add to top level chrome
         Main.layoutManager.addChrome(this._clone);
 
         // track windows as they move across monitors or are created/destroyed
         this._windowEnteredMonitorId = _display.connect('window-entered-monitor', this._windowEnteredMonitor.bind(this));
         this._windowLeftMonitorId = _display.connect('window-left-monitor', this._windowLeftMonitor.bind(this));
+        this._windowFocusNotifyId = _display.connect('notify::focus-window', this._windowFocusMonitor.bind(this));
 
         // for tracking across locking/suspending
         this._state = state;
@@ -364,11 +363,9 @@ class Miniview {
     }
 
     destroy() {
-        Main.overview.disconnect(this._overviewShowingId);
-        Main.overview.disconnect(this._overviewHiddenId);
-
         _display.disconnect(this._windowEnteredMonitorId);
         _display.disconnect(this._windowLeftMonitorId);
+        _display.disconnect(this._windowFocusNotifyId);
 
         this._settings.disconnect(this._settingsChangedId);
         Main.wm.removeKeybinding('toggle-miniview');
@@ -523,6 +520,10 @@ class Miniview {
         }
     }
 
+    _windowFocusMonitor(display) {
+        this._realizeMiniview();
+    }
+
     _removeWindow(metaWin) {
         let index = this.lookupIndex(metaWin);
 
@@ -563,12 +564,6 @@ class Miniview {
         }
     }
 
-    // Tests if @win should be shown in the Overview
-    _isOverviewWindow(metaWin) {
-        let tracker = Shell.WindowTracker.get_default();
-        return tracker.is_window_interesting(metaWin);
-    }
-
     _realizeMiniview() {
         if (this._showme) {
             if (this._windowList.length > 0) {
@@ -594,14 +589,6 @@ class Miniview {
         } else {
             this._clone.visible = false;
         }
-    }
-
-    _overviewEnter() {
-        this._clone.visible = false;
-    }
-
-    _overviewLeave() {
-        this._realizeMiniview();
     }
 
     _reflectState() {
