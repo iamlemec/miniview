@@ -1,11 +1,10 @@
-imports.gi.versions.Gdk = "4.0";
-imports.gi.versions.Gtk = "4.0";
-const { GObject, Gio, Gdk, Gtk, Adw } = imports.gi;
+import GObject from 'gi://GObject';
+import Gio from 'gi://Gio';
+import Gdk from 'gi://Gdk';
+import Gtk from 'gi://Gtk';
+import Adw from 'gi://Adw';
 
-const ExtensionUtils = imports.misc.extensionUtils;
-
-const Gettext = imports.gettext.domain('miniview');
-const _ = Gettext.gettext;
+import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 const modMap = new Map([
     [Gdk.KEY_Control_L, 'control'],
@@ -149,14 +148,14 @@ shortcut.choosing {
 
 let MiniviewPrefsWidget = GObject.registerClass(
 class MiniviewPrefsWidget extends Adw.PreferencesPage {
-    constructor() {
+    constructor(settings) {
         super({
             name: 'miniview_preferences',
             title: 'Miniview Preferences',
         });
 
         // settings
-        this._settings = ExtensionUtils.getSettings();
+        this._settings = settings;
 
         // panel indicator
         let [row_ind, switch_ind] = this._makeSwitch(
@@ -230,10 +229,10 @@ class MiniviewPrefsWidget extends Adw.PreferencesPage {
     
 });
 
-function fillPreferencesWindow(window) {
-    let widget = new MiniviewPrefsWidget();
-    window.add(widget);
-}
-
-function init() {
+export default class MiniviewPreferences extends ExtensionPreferences {
+    fillPreferencesWindow(window) {
+        let settings = this.getSettings();
+        let widget = new MiniviewPrefsWidget(settings);
+        window.add(widget);
+    }
 }
