@@ -1,20 +1,17 @@
-const { GObject, Gio, Meta, Clutter, St, Shell } = imports.gi;
-const Signals = imports.signals;
-const Mainloop = imports.mainloop;
-const Main = imports.ui.main;
-const PanelMenu = imports.ui.panelMenu;
-const PopupMenu = imports.ui.popupMenu;
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import Gio from 'gi://Gio';
+import Clutter from 'gi://Clutter';
+import Meta from 'gi://Meta';
+import St from 'gi://St';
+import Shell from 'gi://Shell';
 
-const Gettext = imports.gettext.domain('miniview');
-const _ = Gettext.gettext;
+import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-const ExtensionUtils = imports.misc.extensionUtils;
-const Me = ExtensionUtils.getCurrentExtension();
-
-let _uuid = Me.metadata.uuid;
 let _display = global.display;
-let _initTranslations = ExtensionUtils.initTranslations;
-let _getSettings = ExtensionUtils.getSettings;
 
 let MiniviewIndicator = GObject.registerClass(
 class MiniviewIndicator extends PanelMenu.Button {
@@ -51,7 +48,7 @@ class MiniviewIndicator extends PanelMenu.Button {
 
         // extension preferences
         this._tsPreferences = new PopupMenu.PopupMenuItem(_('Preferences'));
-        this._tsPreferences.connect('activate', this._onPreferences.bind(this));
+        this._tsPreferences.connect('activate', () => this._miniview.openPreferences());
         this.menu.addMenuItem(this._tsPreferences);
 
         // for double click detection
@@ -80,23 +77,6 @@ class MiniviewIndicator extends PanelMenu.Button {
         this._miniview._clone.inMove = false;
         this._miniview._clone.inResize = false;
         this._miniview._clone.inResizeCtrl = false;
-    }
-
-    _onPreferences() {
-        let _appSys = Shell.AppSystem.get_default();
-        let _gsmPrefs = _appSys.lookup_app('gnome-shell-extension-prefs.desktop');
-        if (_gsmPrefs === null) {
-            _gsmPrefs = _appSys.lookup_app('org.gnome.Extensions.desktop');
-        }
-        if (typeof ExtensionUtils.openPrefs === 'function') {
-            ExtensionUtils.openPrefs();
-        } else if (_gsmPrefs.get_state() === _gsmPrefs.SHELL_APP_STATE_RUNNING) {
-            _gsmPrefs.activate();
-        } else {
-            let info = _gsmPrefs.get_app_info();
-            let timestamp = _display.get_current_time_roundtrip();
-            info.launch_uris([_uuid], global.create_app_launch_context(timestamp, -1));
-        }
     }
 });
 
@@ -310,8 +290,24 @@ let MiniviewClone = GObject.registerClass({
     }
 });
 
-class Miniview {
-    constructor(state) {
+export default class Miniview extends Extension {
+    constructor(metadata) {
+        super(metadata);
+
+        // session state - ephemeral parameters
+        this.state = {
+            metaWin: null,
+            pos_x: null,
+            pos_y: null,
+            size_x: null,
+            size_y: null,
+            opacity: null
+        };
+    }
+
+    enable() {
+        // global.log(`miniview: enable`)
+
         // panel menu
         this._indicator = new MiniviewIndicator(this);
         Main.panel.addToStatusArea('miniview', this._indicator);
@@ -330,7 +326,7 @@ class Miniview {
         this._windowFocusNotifyId = _display.connect('notify::focus-window', this._windowFocusMonitor.bind(this));
 
         // for tracking across locking/suspending
-        this._state = state;
+        this._state = this.state;
         this._stateTimeout = null;
 
         // for screen hops (which look like leaving one monitor then quickly entering another)
@@ -348,10 +344,10 @@ class Miniview {
         this._populateWindows();
 
         // this is a hack so we eventually purge the desktop window in ubuntu
-        this._populateTimeout = Mainloop.timeout_add_seconds(10, this._populateWindows.bind(this));
+        this._populateTimeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 10, this._populateWindows.bind(this));
 
         // get current settings
-        this._settings = _getSettings();
+        this._settings = this.getSettings();
         this._settingsChangedId = this._settings.connect('changed', this._settingsChanged.bind(this));
         this._settingsChanged();
 
@@ -360,30 +356,66 @@ class Miniview {
 
         // implement settings
         this._reflectState();
+
+        // restore state
+        if (this.state.metaWin != null) {
+            let idx = this.lookupIndex(this.state.metaWin);
+            if (idx == -1) { // maybe window was closed while locked?
+                idx = 0;
+                this.state.metaWin = null;
+            }
+            this.setIndex(idx);
+        }
+        if (this.state.pos_x != null) {
+            this._clone.x = this.state.pos_x;
+        }
+        if (this.state.pos_y != null) {
+            this._clone.y = this.state.pos_y;
+        }
+        if (this.state.size_x != null) {
+            this._clone.scale_x = this.state.size_x;
+        }
+        if (this.state.size_y != null) {
+            this._clone.scale_y = this.state.size_y;
+        }
+        if (this.state.opacity != null) {
+            this._clone.user_opacity = this.state.opacity;
+            this._clone.opacity = this.state.opacity;
+        }
     }
 
-    destroy() {
+    disable() {
+        // global.log('miniview: disable')
+
+        // save state
+        this.state.pos_x = this._clone.x;
+        this.state.pos_y = this._clone.y;
+        this.state.size_x = this._clone.scale_x;
+        this.state.size_y = this._clone.scale_y;
+        this.state.opacity = this._clone.user_opacity;
+
         _display.disconnect(this._windowEnteredMonitorId);
         _display.disconnect(this._windowLeftMonitorId);
         _display.disconnect(this._windowFocusNotifyId);
 
         this._settings.disconnect(this._settingsChangedId);
+        this._settings = null;
         Main.wm.removeKeybinding('toggle-miniview');
 
         if (this._stateTimeout != null) {
-            Mainloop.source_remove(this._stateTimeout);
+            GLib.Source.remove(this._stateTimeout);
             this._stateTimeout = null;
         }
         if (this._lastTimeout != null) {
-            Mainloop.source_remove(this._lastTimeout);
+            GLib.Source.remove(this._lastTimeout);
             this._lastTimeout = null;
         }
         if (this._insertTimeout != null) {
-            Mainloop.source_remove(this._insertTimeout);
+            GLib.Source.remove(this._insertTimeout);
             this._insertTimeout = null;
         }
         if (this._populateTimeout != null) {
-            Mainloop.source_remove(this._populateTimeout);
+            GLib.Source.remove(this._populateTimeout);
             this._populateTimeout = null;
         }
 
@@ -416,9 +448,9 @@ class Miniview {
 
             // necessary to not get baffled by locking shenanigans
             if (this._stateTimeout != null) {
-                Mainloop.source_remove(this._stateTimeout);
+                GLib.Source.remove(this._stateTimeout);
             }
-            this._stateTimeout = Mainloop.timeout_add_seconds(1, () => {
+            this._stateTimeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
                 this._state.metaWin = this._metaWin;
                 this._stateTimeout = null;
             });
@@ -476,7 +508,7 @@ class Miniview {
         if (!win) {
             // Newly-created windows are added to a workspace before
             // the compositor finds out about them...
-            this._insertTimeout = Mainloop.idle_add(() => {
+            this._insertTimeout = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
                 if (this._clone && metaWin.get_compositor_private()) {
                     this._insertWindow(metaWin);
                 }
@@ -497,7 +529,7 @@ class Miniview {
             if (this._lastActive) {
                 this.setIndex(this._lastIdx);
             }
-            Mainloop.source_remove(this._lastTimeout);
+            GLib.Source.remove(this._lastTimeout);
             this._lastIdx = null;
             this._lastActive = null;
             this._lastTimeout = null;
@@ -537,9 +569,9 @@ class Miniview {
         this._lastIdx = index;
         this._lastActive = (index == this._winIdx);
         if (this._lastTimeout != null) {
-            Mainloop.source_remove(this._lastTimeout);
+            GLib.Source.remove(this._lastTimeout);
         }
-        this._lastTimeout = Mainloop.timeout_add(100, () => {
+        this._lastTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
             this._lastIdx = null;
             this._lastActive = null;
             this._lastTimeout = null;
@@ -608,69 +640,5 @@ class Miniview {
         this._showind = this._settings.get_boolean('showind');
         this._hidefoc = this._settings.get_boolean('hide-on-focus');
         this._reflectState();
-    }
-}
-
-// one time initializations
-function init(meta) {
-    _initTranslations('miniview');
-}
-
-// top level ui elements
-let _miniview = null;
-
-// session state - ephemeral parameters
-let state = {
-    metaWin: null,
-    pos_x: null,
-    pos_y: null,
-    size_x: null,
-    size_y: null,
-    opacity: null
-}
-
-function enable() {
-    // global.log(`miniview: enable`)
-
-    _miniview = new Miniview(state);
-
-    if (state.metaWin != null) {
-        let idx = _miniview.lookupIndex(state.metaWin);
-        if (idx == -1) { // maybe window was closed while locked?
-            idx = 0;
-            state.metaWin = null;
-        }
-        _miniview.setIndex(idx);
-    }
-    if (state.pos_x != null) {
-        _miniview._clone.x = state.pos_x;
-    }
-    if (state.pos_y != null) {
-        _miniview._clone.y = state.pos_y;
-    }
-    if (state.size_x != null) {
-        _miniview._clone.scale_x = state.size_x;
-    }
-    if (state.size_y != null) {
-        _miniview._clone.scale_y = state.size_y;
-    }
-    if (state.opacity != null) {
-        _miniview._clone.user_opacity = state.opacity;
-        _miniview._clone.opacity = state.opacity;
-    }
-}
-
-function disable() {
-    // global.log('miniview: disable')
-
-    state.pos_x = _miniview._clone.x;
-    state.pos_y = _miniview._clone.y;
-    state.size_x = _miniview._clone.scale_x;
-    state.size_y = _miniview._clone.scale_y;
-    state.opacity = _miniview._clone.user_opacity;
-
-    if (_miniview) {
-        _miniview.destroy();
-        _miniview = null;
     }
 }
