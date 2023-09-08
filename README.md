@@ -29,6 +29,7 @@ After that just restart Gnome Shell. If you're in Xorg you can just hit `Alt+F2`
 ### Contributors
 
 Thanks to these awesome folks!
+- [@andyholmes](https://github.com/andyholmes)
 - [@antielektron](https://github.com/antielektron)
 - [@jonnius](https://github.com/jonnius)
 - [@amivaleo](https://github.com/amivaleo)
