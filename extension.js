@@ -23,8 +23,8 @@ class MiniviewIndicator extends PanelMenu.Button {
         let box = new St.BoxLayout();
         let icon = new St.Icon({ icon_name: 'emblem-photos-symbolic', style_class: 'system-status-icon emotes-icon'});
 
-        box.add(icon);
-        box.add(PopupMenu.arrowIcon(St.Side.BOTTOM));
+        box.add_child(icon);
+        box.add_child(PopupMenu.arrowIcon(St.Side.BOTTOM));
         this.add_child(box);
 
         // on/off toggle
