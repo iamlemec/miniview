@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-08-05 15:07+0200\n"
+"POT-Creation-Date: 2024-10-07 23:32-0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,22 +17,50 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: extension.js:40
-msgid "Mini"
-msgstr ""
-
-#: extension.js:45
+#: extension.js:31
 msgid "Enable Miniview"
 msgstr ""
 
-#: extension.js:50
+#: extension.js:36
 msgid "Next Window"
 msgstr ""
 
-#: extension.js:54
+#: extension.js:40
 msgid "Previous Window"
 msgstr ""
 
-#: extension.js:68
-msgid "Reset Opacity"
+#: extension.js:45
+msgid "Reset Miniview"
+msgstr ""
+
+#: extension.js:50
+msgid "Preferences"
+msgstr ""
+
+#: prefs.js:154
+msgid "Miniview Preferences"
+msgstr ""
+
+#: prefs.js:163
+msgid "Show indicator button in panel"
+msgstr ""
+
+#: prefs.js:164
+msgid "Exposes a menu in the panel with navigation and toggle options"
+msgstr ""
+
+#: prefs.js:170
+msgid "Hide Miniview when target window is focused"
+msgstr ""
+
+#: prefs.js:171
+msgid "Avoids showing a preview of the window you're currently looking at"
+msgstr ""
+
+#: prefs.js:177
+msgid "Keybinding for toggling Miniview display"
+msgstr ""
+
+#: prefs.js:178
+msgid "Click to select new keyboard shortcut"
 msgstr ""

@@ -151,7 +151,7 @@ class MiniviewPrefsWidget extends Adw.PreferencesPage {
     constructor(settings) {
         super({
             name: 'miniview_preferences',
-            title: 'Miniview Preferences',
+            title: _('Miniview Preferences'),
         });
 
         // settings
@@ -160,22 +160,22 @@ class MiniviewPrefsWidget extends Adw.PreferencesPage {
         // panel indicator
         let [row_ind, switch_ind] = this._makeSwitch(
             'showind',
-            'Show indicator button in panel',
-            'Exposes a menu in the panel with navigation and toggle options',
+            _('Show indicator button in panel'),
+            _('Exposes a menu in the panel with navigation and toggle options'),
         );
 
         // hide on focus
         let [row_hof, switch_hof] = this._makeSwitch(
             'hide-on-focus',
-            'Hide Miniview when target window is focused',
-            'Avoids showing a preview of the window you\'re currently looking at',
+            _('Hide Miniview when target window is focused'),
+            _('Avoids showing a preview of the window you\'re currently looking at'),
         );
 
         // show-hide key chooser
         let [row_key, choose_key] = this._makeKeychoose(
             'toggle-miniview',
-            'Keybinding for toggling Miniview display',
-            'Click to select new keyboard shortcut'
+            _('Keybinding for toggling Miniview display'),
+            _('Click to select new keyboard shortcut'),
         );
 
         // group together
