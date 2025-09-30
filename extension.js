@@ -15,7 +15,7 @@ let _display = global.display;
 
 let MiniviewIndicator = GObject.registerClass(
 class MiniviewIndicator extends PanelMenu.Button {
-    _init(miniview) {
+    _init(miniview, toggleState) {
         this._miniview = miniview;
 
         // create menu ui
@@ -29,7 +29,7 @@ class MiniviewIndicator extends PanelMenu.Button {
 
         // on/off toggle
         this._tsToggle = new PopupMenu.PopupSwitchMenuItem(_('Enable Miniview'), false, { style_class: 'popup-subtitle-menu-item' });
-        this._tsToggle.connect('toggled', this._onToggled.bind(this));
+        this.setToggleState(toggleState);
         this.menu.addMenuItem(this._tsToggle);
 
         // cycling through windows
@@ -77,6 +77,15 @@ class MiniviewIndicator extends PanelMenu.Button {
         this._miniview._clone.inMove = false;
         this._miniview._clone.inResize = false;
         this._miniview._clone.inResizeCtrl = false;
+    }
+
+    setToggleState(state) {
+        if (this._toggleHandlerId) {
+            this._tsToggle.disconnect(this._toggleHandlerId);
+        }
+        
+        this._tsToggle.setToggleState(state);
+        this._toggleHandlerId = this._tsToggle.connect('toggled', this._onToggled.bind(this));
     }
 });
 
@@ -308,6 +317,11 @@ export default class Miniview extends Extension {
     enable() {
         // global.log(`miniview: enable`)
 
+        // get current settings
+        this._settings = this.getSettings();
+        this._settingsChangedId = this._settings.connect('changed', this._settingsChanged.bind(this));
+        this._fetchSettings();
+
         // panel menu
         this._indicator = new MiniviewIndicator(this);
         Main.panel.addToStatusArea('miniview', this._indicator);
@@ -345,11 +359,6 @@ export default class Miniview extends Extension {
 
         // this is a hack so we eventually purge the desktop window in ubuntu
         this._populateTimeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 10, this._populateWindows.bind(this));
-
-        // get current settings
-        this._settings = this.getSettings();
-        this._settingsChangedId = this._settings.connect('changed', this._settingsChanged.bind(this));
-        this._settingsChanged();
 
         // assign global toggle
         Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, this._toggleMiniview.bind(this));
@@ -624,7 +633,7 @@ export default class Miniview extends Extension {
     }
 
     _reflectState() {
-        this._indicator._tsToggle.setToggleState(this._showme);
+        this._indicator.setToggleState(this._showme);
         this._indicator.visible = this._showind;
         this._realizeMiniview();
     }
@@ -636,9 +645,13 @@ export default class Miniview extends Extension {
     }
 
     _settingsChanged() {
+        this._fetchSettings();
+        this._reflectState();
+    }
+
+    _fetchSettings() {
         this._showme = this._settings.get_boolean('showme');
         this._showind = this._settings.get_boolean('showind');
         this._hidefoc = this._settings.get_boolean('hide-on-focus');
-        this._reflectState();
     }
 }
