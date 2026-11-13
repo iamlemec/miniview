@@ -6,287 +6,379 @@ import Meta from 'gi://Meta';
 import St from 'gi://St';
 import Shell from 'gi://Shell';
 
-import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
+import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 let _display = global.display;
 
+
+
 let MiniviewIndicator = GObject.registerClass(
-class MiniviewIndicator extends PanelMenu.Button {
-    _init(miniview) {
-        this._miniview = miniview;
+    class MiniviewIndicator extends PanelMenu.Button {
+        _init(miniview, toggleState) {
+            this._miniview = miniview;
 
-        // create menu ui
-        super._init(0.5, 'Miniview');
-        let box = new St.BoxLayout();
-        let icon = new St.Icon({ icon_name: 'emblem-photos-symbolic', style_class: 'system-status-icon emotes-icon'});
+            // create menu ui
+            super._init(0.5, 'Miniview');
+            let box = new St.BoxLayout();
+            let icon = new St.Icon({ icon_name: 'emblem-photos-symbolic', style_class: 'system-status-icon emotes-icon' });
 
-        box.add_child(icon);
-        box.add_child(PopupMenu.arrowIcon(St.Side.BOTTOM));
-        this.add_child(box);
+            box.add_child(icon);
+            box.add_child(PopupMenu.arrowIcon(St.Side.BOTTOM));
+            this.add_child(box);
 
-        // on/off toggle
-        this._tsToggle = new PopupMenu.PopupSwitchMenuItem(_('Enable Miniview'), false, { style_class: 'popup-subtitle-menu-item' });
-        this._tsToggle.connect('toggled', this._onToggled.bind(this));
-        this.menu.addMenuItem(this._tsToggle);
+            // on/off toggle
+            this._tsToggle = new PopupMenu.PopupSwitchMenuItem(_('Enable Miniview'), false, { style_class: 'popup-subtitle-menu-item' });
+            this.setToggleState(toggleState);
+            this.menu.addMenuItem(this._tsToggle);
 
-        // cycling through windows
-        this._tsNext = new PopupMenu.PopupMenuItem(_('Next Window'));
-        this._tsNext.connect('activate', this._onNext.bind(this));
-        this.menu.addMenuItem(this._tsNext);
+            // cycling through windows
+            this._tsNext = new PopupMenu.PopupMenuItem(_('Next Window'));
+            this._tsNext.connect('activate', this._onNext.bind(this));
+            this.menu.addMenuItem(this._tsNext);
 
-        this._tsPrev = new PopupMenu.PopupMenuItem(_('Previous Window'));
-        this._tsPrev.connect('activate', this._onPrev.bind(this));
-        this.menu.addMenuItem(this._tsPrev);
+            this._tsPrev = new PopupMenu.PopupMenuItem(_('Previous Window'));
+            this._tsPrev.connect('activate', this._onPrev.bind(this));
+            this.menu.addMenuItem(this._tsPrev);
 
-        // reset ephemeral parameters (in case miniview got lost :) )
-        this._tsResetMiniview = new PopupMenu.PopupMenuItem(_('Reset Miniview'));
-        this._tsResetMiniview.connect('activate', this._onResetMiniview.bind(this));
-        this.menu.addMenuItem(this._tsResetMiniview);
+            // reset ephemeral parameters (in case miniview got lost :) )
+            this._tsResetMiniview = new PopupMenu.PopupMenuItem(_('Reset Miniview'));
+            this._tsResetMiniview.connect('activate', this._onResetMiniview.bind(this));
+            this.menu.addMenuItem(this._tsResetMiniview);
 
-        // extension preferences
-        this._tsPreferences = new PopupMenu.PopupMenuItem(_('Preferences'));
-        this._tsPreferences.connect('activate', () => this._miniview.openPreferences());
-        this.menu.addMenuItem(this._tsPreferences);
+            // extension preferences
+            this._tsPreferences = new PopupMenu.PopupMenuItem(_('Preferences'));
+            this._tsPreferences.connect('activate', () => this._miniview.openPreferences());
+            this.menu.addMenuItem(this._tsPreferences);
 
-        // for double click detection
-        this._prev_click_time = null;
-    }
+            // for double click detection
+            this._prev_click_time = null;
+        }
 
-    _onToggled() {
-        this._miniview._toggleMiniview();
-    }
+        _onToggled() {
+            this._miniview._toggleMiniview();
+        }
 
-    _onNext() {
-        this._miniview._goWindowDown();
-    }
+        _onNext() {
+            this._miniview._goWindowDown();
+        }
 
-    _onPrev() {
-        this._miniview._goWindowUp();
-    }
+        _onPrev() {
+            this._miniview._goWindowUp();
+        }
 
-    _onResetMiniview() {
-        this._miniview._clone.user_opacity = 255;
-        this._miniview._clone.opacity = 255;
-        this._miniview._clone.scale_x = 0.2;
-        this._miniview._clone.scale_y = 0.2;
-        this._miniview._clone.x = 100;
-        this._miniview._clone.y = 100;
-        this._miniview._clone.inMove = false;
-        this._miniview._clone.inResize = false;
-        this._miniview._clone.inResizeCtrl = false;
-    }
-});
+        _onResetMiniview() {
+            this._miniview._clone.user_opacity = 255;
+            this._miniview._clone.opacity = 255;
+            this._miniview._clone.scale_x = 0.2;
+            this._miniview._clone.scale_y = 0.2;
+            this._miniview._clone.x = 100;
+            this._miniview._clone.y = 100;
+            this._miniview._clone.inMove = false;
+            this._miniview._clone.inResize = false;
+            this._miniview._clone.inResizeCtrl = false;
+        }
+
+        setToggleState(state) {
+            if (this._toggleHandlerId) {
+                this._tsToggle.disconnect(this._toggleHandlerId);
+            }
+
+            this._tsToggle.setToggleState(state);
+            this._toggleHandlerId = this._tsToggle.connect('toggled', this._onToggled.bind(this));
+        }
+    });
 
 let MiniviewClone = GObject.registerClass({
     Signals: {
         'scroll-up': {},
-        'scroll-down': {}
-    }
+        'scroll-down': {},
+    },
 }, class MiniviewClone extends Clutter.Actor {
     _init(miniview) {
+
         this._miniview = miniview;
         this._windowClone = new Clutter.Clone();
 
-        // The MetaShapedTexture that we clone has a size that includes
-        // the invisible border; this is inconvenient; rather than trying
-        // to compensate all over the place we insert a ClutterGroup into
-        // the hierarchy that is sized to only the visible portion.
-        super._init({ reactive: true, x: 100, y: 100 });
-
-        // We expect this to be used for all interaction rather than
-        // this._windowClone; as the former is reactive and the latter
-        // is not, this just works for most cases. However, for DND all
-        // actors are picked, so DND operations would operate on the clone.
-        // To avoid this, we hide it from pick.
+        super._init({ reactive: true, x: 100, y: 100, });
+        // Hide the window clone from pointer picking.
         Shell.util_set_hidden_from_pick(this._windowClone, true);
-
         this.add_child(this._windowClone);
 
         this.connect('button-press-event', this._onButtonPress.bind(this));
-        this.connect('button-release-event', this._onButtonRelease.bind(this));
-        this.connect('motion-event', this._onMouseMove.bind(this));
         this.connect('scroll-event', this._onScroll.bind(this));
         this.connect('enter-event', this._onMouseEnter.bind(this));
         this.connect('leave-event', this._onMouseLeave.bind(this));
 
-        // interface state
+        // Mouse interaction state.
         this.inMove = false;
         this.inResize = false;
         this.inResizeCtrl = false;
+        this._pressedOnClone = false;
 
-        // initial size
+        this._prev_click_time = null;
+
+        // Initial size and position.
         this.scale_x = 0.2;
         this.scale_y = 0.2;
         this.visible = false;
 
-        // opacity values
+        // Opacity.
         this.user_opacity = 255;
+
+
+
+        // // IMPORTANT:
+        // // Capture events at the stage level so mouse releases
+        // // are detected even when the pointer leaves this actor.
+        // this._stageEventId = global.stage.connect(
+        //     'captured-event',
+        //     this._onStageEvent.bind(this)
+        // );
+        this.connect('button-release-event', this._onButtonRelease.bind(this));
+        this.connect('motion-event', this._onMouseMove.bind(this));
+
+        // Pointer grab handle
+        this._dragGrab = null;
+        this._activeButton = null;
     }
 
+    // _onStageEvent(stage, event) {
+    //     const type = event.type();
+
+    //     if (type === Clutter.EventType.MOTION) {
+    //         if (this.inMove || this.inResize || this.inResizeCtrl) {
+    //             this._onMouseMove(this, event);
+    //             return Clutter.EVENT_STOP;
+    //         }
+    //     }
+
+    //     if (type === Clutter.EventType.BUTTON_RELEASE) {
+    //         if (this._pressedOnClone ||
+    //             this.inMove ||
+    //             this.inResize ||
+    //             this.inResizeCtrl) {
+    //             this._onButtonRelease(this, event);
+    //             return Clutter.EVENT_STOP;
+    //         }
+    //     }
+
+    //     return Clutter.EVENT_PROPAGATE;
+    // }
+
     _onButtonPress(actor, event) {
-        // only allow one type of action at a time
-        if (this.inMove || this.inResize || this.inResizeCtrl) {
-            return true;
-        }
+        if (this.inMove || this.inResize || this.inResizeCtrl)
+            return Clutter.EVENT_STOP;
 
-        let [click_x, click_y] = event.get_coords();
-        this.offset_x = click_x - this.x;
-        this.offset_y = click_y - this.y;
+        const [clickX, clickY] = event.get_coords();
 
-        let button = event.get_button();
-        let state = event.get_state();
-        let ctrl = (state & Clutter.ModifierType.CONTROL_MASK) != 0;
-        let shift = (state & Clutter.ModifierType.SHIFT_MASK) != 0;
+        this.offset_x = clickX - this.x;
+        this.offset_y = clickY - this.y;
 
-        // alternative scroll
-        if (shift) {
-            return true;
-        }
+        const button = event.get_button();
+        const state = event.get_state();
 
-        if ((button == 1) && (!ctrl)) {
+        const ctrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
+        const shift = (state & Clutter.ModifierType.SHIFT_MASK) !== 0;
+
+        if (shift)
+            return Clutter.EVENT_PROPAGATE;
+
+        if (button === 1 && !ctrl) {
             this.inMove = true;
-        } else if ((button == 3) || ((button == 1) && ctrl)) {
-            if (button == 3) {
-                this.inResize = true;
-            } else {
-                this.inResizeCtrl = true;
-            }
+        } else if (button === 3 || (button === 1 && ctrl)) {
+            this.inResize = button === 3;
+            this.inResizeCtrl = button === 1 && ctrl;
 
-            this.offset_norm = Math.sqrt(Math.pow(this.offset_x,2)
-                                        +Math.pow(this.offset_y,2));
+            this.offset_norm = Math.max(
+                Math.hypot(this.offset_x, this.offset_y),
+                1
+            );
 
             this.orig_scale_x = this.scale_x;
             this.orig_scale_y = this.scale_y;
+        } else {
+            return Clutter.EVENT_PROPAGATE;
         }
 
-        return true;
+        this._activeButton = button;
+
+        // Grab the pointer so release and motion events continue
+        // reaching this actor outside its boundaries.
+        this._dragGrab = global.stage.grab(this);
+
+        return Clutter.EVENT_STOP;
     }
-
     _onButtonRelease(actor, event) {
-        let button = event.get_button();
-        let state = event.get_state();
-        let shift = (state & Clutter.ModifierType.SHIFT_MASK) != 0;
-        let time = event.get_time();
+        const button = event.get_button();
 
-        // detect double click
-        let dbtime = Clutter.Settings.get_default().double_click_time;
-        let dbclick = (this._prev_click_time != null) && ((time - this._prev_click_time) < dbtime);
+        // Ignore unrelated button releases.
+        if (this._activeButton !== null &&
+            button !== this._activeButton) {
+            return Clutter.EVENT_STOP;
+        }
+
+        const state = event.get_state();
+        const shift =
+            (state & Clutter.ModifierType.SHIFT_MASK) !== 0;
+
+        const time = event.get_time();
+
+        // GNOME 51-compatible double-click settings.
+        const dbtime = this.get_context()
+            .get_settings().double_click_time;
+
+        const dbclick =
+            this._prev_click_time !== null &&
+            (time - this._prev_click_time) < dbtime;
+
         this._prev_click_time = time;
 
-        // alternative scroll
+        // Remember the action before resetting it.
+        const wasMoving = this.inMove;
+
+        // Reset interaction state.
+        this.inMove = false;
+        this.inResize = false;
+        this.inResizeCtrl = false;
+        this._activeButton = null;
+
+        // Release the pointer grab.
+        if (this._dragGrab) {
+            this._dragGrab.dismiss();
+            this._dragGrab = null;
+        }
+
+        // Alternative window cycling.
         if (shift) {
-            if (button == 1) {
+            if (button === 1)
                 this.emit('scroll-up');
-            } else if (button == 3) {
+            else if (button === 3)
                 this.emit('scroll-down');
-            }
-            return true;
+
+            return Clutter.EVENT_STOP;
         }
 
-        if (button == 1) {
-            if (this.inMove) {
-                this.inMove = false;
-            }
-
-            if (this.inResizeCtrl) {
-                this.inResizeCtrl = false;
-            }
-
-            if (dbclick) {
-                Main.activateWindow(this._metaWin);
-            }
-        } else if (button == 3) {
-            if (this.inResize) {
-                this.inResize = false;
-            }
+        // Double-click activates the selected window.
+        if (button === 1 && dbclick && this._metaWin) {
+            Main.activateWindow(this._metaWin);
         }
 
-        return true;
+        this.opacity = this.user_opacity;
+
+        return Clutter.EVENT_STOP;
     }
 
     _onMouseMove(actor, event) {
-        if (this.inMove || this.inResize || this.inResizeCtrl) {
-            let [pos_x,pos_y] = event.get_coords();
-
-            if (this.inMove) {
-                this.x = pos_x - this.offset_x;
-                this.y = pos_y - this.offset_y;
-            }
-
-            if (this.inResize || this.inResizeCtrl) {
-                let new_offset_x = pos_x - this.x;
-                let new_offset_y = pos_y - this.y;
-                let new_offset_norm =  Math.sqrt(Math.pow(new_offset_x,2)
-                                                +Math.pow(new_offset_y,2));
-
-                this.scale_x = this.orig_scale_x*new_offset_norm/this.offset_norm;
-                this.scale_y = this.orig_scale_y*new_offset_norm/this.offset_norm;
-            }
+        if (!this.inMove && !this.inResize && !this.inResizeCtrl) {
+            return Clutter.EVENT_PROPAGATE;
         }
 
-        return true;
+        const [posX, posY] = event.get_coords();
+
+        if (this.inMove) {
+            this.x = posX - this.offset_x;
+            this.y = posY - this.offset_y;
+        }
+
+        if (this.inResize || this.inResizeCtrl) {
+            const newOffsetX = posX - this.x;
+            const newOffsetY = posY - this.y;
+
+            const newOffsetNorm = Math.hypot(
+                newOffsetX,
+                newOffsetY
+            );
+
+            const scaleFactor =
+                newOffsetNorm / this.offset_norm;
+
+            this.scale_x = Math.max(
+                0.05,
+                this.orig_scale_x * scaleFactor
+            );
+
+            this.scale_y = Math.max(
+                0.05,
+                this.orig_scale_y * scaleFactor
+            );
+        }
+
+        return Clutter.EVENT_STOP;
     }
 
     _onScroll(actor, event) {
-        // only allow one type of action at a time
-        if (this.inMove || this.inResize || this.inResizeCtrl) {
-            return true;
-        }
+        if (this.inMove || this.inResize || this.inResizeCtrl)
+            return Clutter.EVENT_STOP;
 
-        let direction = event.get_scroll_direction();
-        let state = event.get_state();
-        let ctrl = (state & Clutter.ModifierType.CONTROL_MASK) != 0;
+        const direction = event.get_scroll_direction();
+        const state = event.get_state();
+
+        const ctrl =
+            (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
 
         if (ctrl) {
-            if (direction == Clutter.ScrollDirection.UP) {
+            if (direction === Clutter.ScrollDirection.UP)
                 this.user_opacity += 10;
-            } else if (direction == Clutter.ScrollDirection.DOWN) {
+            else if (direction === Clutter.ScrollDirection.DOWN)
                 this.user_opacity -= 10;
-            }
 
-            if (this.user_opacity > 255) {
-                this.user_opacity = 255;
-            } else if (this.user_opacity < 35) {
-                this.user_opacity = 35;
-            }
+            this.user_opacity = Math.max(
+                35,
+                Math.min(255, this.user_opacity)
+            );
 
             this.opacity = this.user_opacity;
         } else {
-            if (direction == Clutter.ScrollDirection.UP) {
+            if (direction === Clutter.ScrollDirection.UP)
                 this.emit('scroll-up');
-            } else if (direction == Clutter.ScrollDirection.DOWN) {
+            else if (direction === Clutter.ScrollDirection.DOWN)
                 this.emit('scroll-down');
-            }
         }
+
+        return Clutter.EVENT_STOP;
     }
 
-    _onMouseEnter(actor, event) {
-        // decrease opacity a little bit
+    _onMouseEnter() {
         this.opacity = Math.trunc(this.user_opacity * 0.8);
+        return Clutter.EVENT_PROPAGATE;
     }
 
-    _onMouseLeave(actor, event) {
-        if (this.inMove) {
-            let [pos_x,pos_y] = event.get_coords();
-            this.x = pos_x - this.offset_x;
-            this.y = pos_y - this.offset_y;
-        } else if (this.inResize) {
-            this.inResize = false;
-        } else if (this.inResizeCtrl) {
-            this.inResizeCtrl = false;
-        }
-        else {
-            // set opacity back to user value
+    _onMouseLeave() {
+        // Do not cancel dragging or resizing here.
+        // The stage-level event handler handles these operations.
+
+        if (!this.inMove &&
+            !this.inResize &&
+            !this.inResizeCtrl) {
             this.opacity = this.user_opacity;
         }
+
+        return Clutter.EVENT_PROPAGATE;
     }
 
     setSource(win) {
+        if (!win)
+            return;
+
         this._metaWin = win.meta_window;
         this._windowClone.set_source(win);
+    }
+
+    destroy() {
+        if (this._dragGrab) {
+            this._dragGrab.dismiss();
+            this._dragGrab = null;
+        }
+
+        this.inMove = false;
+        this.inResize = false;
+        this.inResizeCtrl = false;
+        this._activeButton = null;
+
+        super.destroy();
     }
 });
 
@@ -307,6 +399,11 @@ export default class Miniview extends Extension {
 
     enable() {
         // global.log(`miniview: enable`)
+
+        // get current settings
+        this._settings = this.getSettings();
+        this._settingsChangedId = this._settings.connect('changed', this._settingsChanged.bind(this));
+        this._fetchSettings();
 
         // panel menu
         this._indicator = new MiniviewIndicator(this);
@@ -345,11 +442,6 @@ export default class Miniview extends Extension {
 
         // this is a hack so we eventually purge the desktop window in ubuntu
         this._populateTimeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 10, this._populateWindows.bind(this));
-
-        // get current settings
-        this._settings = this.getSettings();
-        this._settingsChangedId = this._settings.connect('changed', this._settingsChanged.bind(this));
-        this._settingsChanged();
 
         // assign global toggle
         Main.wm.addKeybinding('toggle-miniview', this._settings, Meta.KeyBindingFlags.NONE, Shell.ActionMode.NORMAL, this._toggleMiniview.bind(this));
@@ -438,23 +530,33 @@ export default class Miniview extends Extension {
     }
 
     setIndex(idx) {
-        // global.log(`miniview: setIndex: index=${idx}, current=${this._winIdx}, total=${this._windowList.length}`);
-
-        if ((idx >= 0) && (idx < this._windowList.length)) {
-            this._winIdx = idx;
-            this._metaWin = this._windowList[this._winIdx];
-            let win = this._metaWin.get_compositor_private();
-            this._clone.setSource(win);
-
-            // necessary to not get baffled by locking shenanigans
-            if (this._stateTimeout != null) {
-                GLib.Source.remove(this._stateTimeout);
-            }
-            this._stateTimeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
-                this._state.metaWin = this._metaWin;
-                this._stateTimeout = null;
-            });
+        if (!this._windowList ||
+            idx < 0 ||
+            idx >= this._windowList.length) {
+            return;
         }
+
+        const metaWin = this._windowList[idx];
+        const win = metaWin.get_compositor_private();
+
+        if (!win)
+            return;
+
+        this._winIdx = idx;
+        this._metaWin = metaWin;
+
+        this._clone.setSource(win);
+
+        if (this._stateTimeout !== null) {
+            GLib.Source.remove(this._stateTimeout);
+            this._stateTimeout = null;
+        }
+
+        this._stateTimeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
+            this._state.metaWin = this._metaWin;
+            this._stateTimeout = null;
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _populateWindows() {
@@ -478,18 +580,26 @@ export default class Miniview extends Extension {
     }
 
     _goWindowUp() {
-        let idx = this._winIdx + 1;
-        if (idx >= this._windowList.length) {
+        if (!this._windowList || this._windowList.length === 0)
+            return;
+
+        let idx = (this._winIdx ?? -1) + 1;
+
+        if (idx >= this._windowList.length)
             idx = 0;
-        }
+
         this.setIndex(idx);
     }
 
     _goWindowDown() {
-        let idx = this._winIdx - 1;
-        if (idx < 0) {
+        if (!this._windowList || this._windowList.length === 0)
+            return;
+
+        let idx = (this._winIdx ?? 0) - 1;
+
+        if (idx < 0)
             idx = this._windowList.length - 1;
-        }
+
         this.setIndex(idx);
     }
 
@@ -582,7 +692,7 @@ export default class Miniview extends Extension {
 
         // hide if no windows
         if (this._windowList.length == 0) {
-            this._winIdx == null;
+            this._winIdx = null;
             this._clone.visible = false;
             return;
         }
@@ -624,7 +734,7 @@ export default class Miniview extends Extension {
     }
 
     _reflectState() {
-        this._indicator._tsToggle.setToggleState(this._showme);
+        this._indicator.setToggleState(this._showme);
         this._indicator.visible = this._showind;
         this._realizeMiniview();
     }
@@ -636,9 +746,13 @@ export default class Miniview extends Extension {
     }
 
     _settingsChanged() {
+        this._fetchSettings();
+        this._reflectState();
+    }
+
+    _fetchSettings() {
         this._showme = this._settings.get_boolean('showme');
         this._showind = this._settings.get_boolean('showind');
         this._hidefoc = this._settings.get_boolean('hide-on-focus');
-        this._reflectState();
     }
 }
